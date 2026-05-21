@@ -1,0 +1,123 @@
+# Mustry Academy — Lab 04 (file-based deploy)
+# A single Ignition 8.3 gateway + Postgres. Lab-sized; multi-gateway is lab-05.
+#
+# Run it:
+#   cp .env.example .env
+#   docker compose up -d
+# Then open http://localhost:8088 (admin / <GATEWAY_ADMIN_PASSWORD>).
+#
+# Project content lives in ./projects/ (host-bound into the gateway).
+# Gateway-level config lives in ./services/ignition/config/.
+# Anything written into either path is picked up by the running gateway
+# once you hit POST /data/api/v1/scan/{projects,config} — see Block B.
+---
+services:
+  ignition:
+    image: inductiveautomation/ignition:8.3.6
+    container_name: lab04-ignition
+    hostname: lab04-ignition
+    user: root
+    restart: unless-stopped
+    ports:
+      - "8088:8088"   # HTTP
+      - "8060:8060"   # Gateway Network
+    volumes:
+      - ignition-data:/usr/local/bin/ignition/data
+      - ./projects:/usr/local/bin/ignition/data/projects
+      - ./services/config:/usr/local/bin/ignition/data/config
+      - ./services/modules.json:/usr/local/bin/ignition/data/modules.json
+      - ./third-party-modules:/third-party-modules
+    environment:
+      ACCEPT_IGNITION_EULA: "Y"
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-lab04password}"
+      IGNITION_EDITION: standard
+      GATEWAY_MODULES_ENABLED: >-
+        com.inductiveautomation.alarm-notification
+        com.inductiveautomation.eventstream,
+        com.inductiveautomation.historian,
+        com.inductiveautomation.connectors.kafka,
+        com.inductiveautomation.opcua.drivers.modbus,
+        com.inductiveautomation.opcua,
+        com.inductiveautomation.perspective,
+        com.inductiveautomation.reporting,
+        com.inductiveautomation.historian.sql,
+        com.inductiveautomation.symbol-factory,
+        com.inductiveautomation.opcua.drivers.tcpudp,
+        com.inductiveautomation.webdev,
+        com.inductiveautomation.jdbc.postgresql,
+        com.mussonindustrial.embr.charts,
+        com.mussonindustrial.embr.periscope,
+        com.mustry.historian.timescaledb,
+        com.cirruslink.mqtt.engine.gateway
+      ACCEPT_MODULE_LICENSES: >-
+        com.mussonindustrial.embr.charts,
+        com.mussonindustrial.embr.periscope,
+        com.mustry.historian.timescaledb,
+        com.cirruslink.mqtt.engine.gateway,
+      ACCEPT_MODULE_CERTS: >- 
+        com.mussonindustrial.embr.charts,
+        com.mussonindustrial.embr.periscope,
+        com.mustry.historian.timescaledb,
+        com.cirruslink.mqtt.engine.gateway,
+      GATEWAY_RESTORE_DISABLED: "true"
+      GATEWAY_NETWORK_ENABLED: "true"
+      TZ: "Europe/Brussels"
+    command: >
+      -n lab04-ignition
+      -m 4096
+      --
+      wrapper.java.initmemory=1024
+      -Dignition.allowunsignedmodules=true
+      -Dignition.gateway.externalModulesFolder=/third-party-modules
+      -Dignition.config.mode=core
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8088/StatusPing"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - default
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-ignition}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-ignition}"
+      POSTGRES_DB: "${POSTGRES_DB:-ignition}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ignition}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - default
+
+volumes:
+  ignition-data:
+  timescaledb-data:

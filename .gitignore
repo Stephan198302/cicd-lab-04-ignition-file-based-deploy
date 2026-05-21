@@ -1,0 +1,31 @@
+# Local env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Local notes
+NOTES.local.md
+
+# Python (used by any lab tooling)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Ignition operational state — never commit these (see docs/ignition-file-structure.md)
+# These live inside the gateway's data/ directory at runtime; we mount them as a named
+# volume so they don't pollute the bind-mounted projects/ and services/ paths.
+**/data/db/
+**/data/users.idb
+**/data/temp/
+**/data/logs/
+**/data/.metadata/
+volumes/ignition-data/
