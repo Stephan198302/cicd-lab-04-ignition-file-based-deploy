@@ -1,0 +1,36 @@
+# .deployignore — patterns NOT to copy onto the gateway during a file-based deploy.
+#
+# Format: gitignore-style. One pattern per line. Blank lines and lines starting
+# with `#` are ignored. Trailing slashes match directories.
+#
+# The deploy script reads this file and prunes the working tree before copying.
+# Anything matched here exists in the repo but never lands on the gateway.
+
+# Lab-only files that have nothing to do with the gateway runtime
+README.md
+PLAN.md
+LICENSE
+.deployignore
+.gitignore
+.gitattributes
+.deployignore
+.env.example
+.github/
+docs/
+exercises/
+instructor-notes/
+scripts/
+NOTES.local.md
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+
+# Compose / dev-only files
+docker-compose.yaml
+.env

@@ -1,0 +1,125 @@
+# Release to the prod gateway on tag push.
+#
+# Triggers on tags matching `v*` (e.g. v1.0.0, v2.3.1-rc1). Also supports
+# manual dispatch with a tag input — useful for redeploying a specific
+# released version.
+#
+# Mechanics: file-based deploy via `docker cp` into the prod gateway's
+# container (named volume, not a bind mount), then trigger a scan.
+# Identical to deploy.yml except for the environment, container name, and
+# default URL.
+#
+# Required setup on GitHub (Settings → Environments → "lab-gateway-prod"):
+#   Secret:    IGNITION_API_KEY    Created in the prod gateway UI (Config →
+#                                  Security → API Keys); needs a role with
+#                                  Project Scan + Config Scan permission.
+#   Variable:  IGNITION_URL        Optional. Defaults to
+#                                  http://ignition-prod:8088 — the in-compose
+#                                  service name (the lab's bundled runner runs
+#                                  on the same docker network as the gateways).
+#                                  Override to http://localhost:8090 if your
+#                                  runner is on the host instead.
+#   Variable:  IGNITION_CONTAINER  Optional. Defaults to lab04-ignition-prod.
+#
+# Add required reviewers on the lab-gateway-prod environment if you want a
+# manual approval gate before prod releases — common pattern, doesn't need
+# any workflow change.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to deploy (e.g. v1.0.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: release-lab-gateway-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release to prod gateway
+    runs-on: [self-hosted, lab04]
+    environment: lab-gateway-prod
+    env:
+      IGNITION_URL: ${{ vars.IGNITION_URL || 'http://ignition-prod:8088' }}
+      IGNITION_CONTAINER: ${{ vars.IGNITION_CONTAINER || 'lab04-ignition-prod' }}
+      IGNITION_API_KEY: ${{ secrets.IGNITION_API_KEY }}
+      GATEWAY_DATA_PATH: /usr/local/bin/ignition/data
+
+    steps:
+      - name: Check out repo at tag
+        uses: actions/checkout@v4
+        with:
+          # When triggered by a tag push, github.ref already points at the
+          # tag. When triggered manually, use the user-supplied input.
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          clean: true
+
+      - name: Verify deploy prerequisites
+        run: |
+          set -euo pipefail
+          command -v docker >/dev/null || { echo "docker CLI not installed on runner"; exit 1; }
+          test -n "$IGNITION_API_KEY" || { echo "IGNITION_API_KEY secret is missing"; exit 1; }
+          if ! docker inspect "$IGNITION_CONTAINER" >/dev/null 2>&1; then
+            echo "Container '$IGNITION_CONTAINER' not found on this runner's Docker daemon" >&2
+            exit 1
+          fi
+          state="$(docker inspect -f '{{.State.Status}}' "$IGNITION_CONTAINER")"
+          if [ "$state" != "running" ]; then
+            echo "Container '$IGNITION_CONTAINER' is in state '$state', expected 'running'" >&2
+            exit 1
+          fi
+          echo "Prerequisites OK (container=$IGNITION_CONTAINER state=$state)."
+
+      - name: Prune working tree per .deployignore
+        run: |
+          set -euo pipefail
+          [ -f .deployignore ] || { echo "No .deployignore — skipping prune"; exit 0; }
+          while IFS= read -r line || [ -n "$line" ]; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            pat="${line%/}"
+            if [[ "$pat" == */* ]]; then
+              if [ -e "$pat" ]; then
+                echo "  pruning (path):  $pat"
+                rm -rf -- "$pat"
+              fi
+            else
+              while IFS= read -r -d '' p; do
+                echo "  pruning (match): $p"
+                rm -rf -- "$p"
+              done < <(find . -name "$pat" -print0 2>/dev/null)
+            fi
+          done < .deployignore
+
+      - name: Ship projects and config into gateway container
+        run: |
+          set -euo pipefail
+          docker exec "$IGNITION_CONTAINER" sh -c \
+            "rm -rf $GATEWAY_DATA_PATH/projects/* $GATEWAY_DATA_PATH/config/*"
+          docker cp ./projects/.        "$IGNITION_CONTAINER:$GATEWAY_DATA_PATH/projects/"
+          docker cp ./services/config/. "$IGNITION_CONTAINER:$GATEWAY_DATA_PATH/config/"
+
+      - name: Trigger gateway scan
+        run: scripts/trigger-scan.sh both
+
+      - name: Smoke-check gateway health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            if curl -fsS --max-time 3 "$IGNITION_URL/StatusPing" >/dev/null; then
+              echo "gateway healthy after $((i * 2))s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "gateway did not respond after deploy" >&2
+          exit 1

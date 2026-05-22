@@ -1,0 +1,72 @@
+# PR validation — runs on every pull request targeting main.
+#
+# Purpose: catch the cheap stuff before a deploy gets near it. We DON'T spin
+# up Ignition here; that's left to the deploy workflow on its self-hosted
+# runner. The validation we do run is fast and free on ubuntu-latest.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancel any in-flight CI run for this PR when a new commit lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JSON validity sweep
+        # Walks every *.json under projects/ and services/ and confirms it
+        # parses. Failures surface as PR annotations via the ::error syntax.
+        run: |
+          set +e
+          fail=0
+          while IFS= read -r f; do
+            if ! python3 -m json.tool "$f" > /dev/null 2>&1; then
+              echo "::error file=$f::Invalid JSON"
+              fail=1
+            fi
+          done < <(find projects services -type f -name '*.json' 2>/dev/null)
+          if [ "$fail" -eq 0 ]; then
+            echo "All JSON files parse cleanly."
+          fi
+          exit $fail
+
+      - name: .deployignore syntax
+        # Patterns must be relative (no leading /). Other shapes are fine —
+        # the prune step is forgiving.
+        run: |
+          set +e
+          [ -f .deployignore ] || { echo "No .deployignore — nothing to validate"; exit 0; }
+          fail=0
+          n=0
+          while IFS= read -r line || [ -n "$line" ]; do
+            n=$((n+1))
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            if [[ "$line" =~ ^/ ]]; then
+              echo "::error file=.deployignore,line=$n::Pattern must be relative, not absolute: $line"
+              fail=1
+            fi
+          done < .deployignore
+          if [ "$fail" -eq 0 ]; then
+            echo ".deployignore patterns look fine."
+          fi
+          exit $fail
+
+      - name: actionlint
+        # Statically check every workflow file in .github/workflows/.
+        # Catches typos, missing inputs, shellcheck issues inside `run:` blocks.
+        # We download the upstream binary directly to avoid third-party action
+        # dependencies; swap to `raven-actions/actionlint@v2` if you'd rather
+        # use a wrapped action.
+        run: |
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color

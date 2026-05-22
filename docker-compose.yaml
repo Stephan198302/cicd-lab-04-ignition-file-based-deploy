@@ -1,106 +1,202 @@
 # Mustry Academy — Lab 04 (file-based deploy)
-# A single Ignition 8.3 gateway + Postgres. Lab-sized; multi-gateway is lab-05.
+# Three Ignition 8.3 gateways + one TimescaleDB with three logical databases:
+#
+#   ignition-local   http://localhost:8088   bind-mounts ./projects + ./services/config
+#                                            (working gateway — edits show
+#                                             up immediately on disk)
+#   ignition-dev     http://localhost:8089   named volume, populated by deploy.yml
+#                                            (push to main)
+#   ignition-prod    http://localhost:8090   named volume, populated by release.yml
+#                                            (tag push v*)
+#
+#   timescaledb      localhost:5432          databases: ignition_loc, ignition_dev,
+#                                                       ignition_prd (one per env)
 #
 # Run it:
 #   cp .env.example .env
-#   docker compose up -d
-# Then open http://localhost:8088 (admin / <GATEWAY_ADMIN_PASSWORD>).
-#
-# Project content lives in ./projects/ (host-bound into the gateway).
-# Gateway-level config lives in ./services/ignition/config/.
-# Anything written into either path is picked up by the running gateway
-# once you hit POST /data/api/v1/scan/{projects,config} — see Block B.
+#   scripts/setup.sh           # or:  docker compose up -d
+# Then:
+#   open http://localhost:8088   (local)
+#   open http://localhost:8089   (dev — empty until first push to main)
+#   open http://localhost:8090   (prod — empty until first tag push)
+
 ---
+# YAML anchors for the bits that don't differ across the three gateways. Each
+# service merges these in and overrides the parts that do (ports, admin creds,
+# the gateway name passed to the wrapper, volumes).
+x-ignition-env: &ignition-env
+  ACCEPT_IGNITION_EULA: "Y"
+  IGNITION_EDITION: standard
+  GATEWAY_MODULES_ENABLED: >-
+    com.inductiveautomation.alarm-notification,
+    com.inductiveautomation.eventstream,
+    com.inductiveautomation.historian,
+    com.inductiveautomation.connectors.kafka,
+    com.inductiveautomation.opcua.drivers.modbus,
+    com.inductiveautomation.opcua,
+    com.inductiveautomation.perspective,
+    com.inductiveautomation.reporting,
+    com.inductiveautomation.historian.sql,
+    com.inductiveautomation.symbol-factory,
+    com.inductiveautomation.opcua.drivers.tcpudp,
+    com.inductiveautomation.webdev,
+    com.inductiveautomation.jdbc.postgresql,
+    com.mussonindustrial.embr.charts,
+    com.mussonindustrial.embr.periscope,
+    com.mustry.historian.timescaledb,
+    com.cirruslink.mqtt.engine.gateway
+  ACCEPT_MODULE_LICENSES: >-
+    com.mussonindustrial.embr.charts,
+    com.mussonindustrial.embr.periscope,
+    com.mustry.historian.timescaledb,
+    com.cirruslink.mqtt.engine.gateway
+  ACCEPT_MODULE_CERTS: >-
+    com.mussonindustrial.embr.charts,
+    com.mussonindustrial.embr.periscope,
+    com.mustry.historian.timescaledb,
+    com.cirruslink.mqtt.engine.gateway
+  GATEWAY_RESTORE_DISABLED: "true"
+  GATEWAY_NETWORK_ENABLED: "true"
+  TZ: "Europe/Brussels"
+
+x-ignition-resources: &ignition-resources
+  deploy:
+    resources:
+      limits:
+        memory: 1G
+      reservations:
+        memory: 512M
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-ignition-healthcheck: &ignition-healthcheck
+  test: ["CMD", "curl", "-fsS", "http://localhost:8088/StatusPing"]
+  interval: 30s
+  timeout: 10s
+  retries: 10
+  start_period: 90s
+
 services:
-  ignition:
+  # --- local gateway: edits on the host show up here immediately --------------
+  ignition-local:
     image: inductiveautomation/ignition:8.3.6
-    container_name: lab04-ignition
-    hostname: lab04-ignition
+    container_name: lab04-ignition-local
+    hostname: lab04-ignition-local
     user: root
     restart: unless-stopped
     ports:
-      - "8088:8088"   # HTTP
-      - "8060:8060"   # Gateway Network
+      - "8088:8088"
+      - "8060:8060"
     volumes:
-      - ignition-data:/usr/local/bin/ignition/data
+      - ignition-local-data:/usr/local/bin/ignition/data
       - ./projects:/usr/local/bin/ignition/data/projects
       - ./services/config:/usr/local/bin/ignition/data/config
       - ./services/modules.json:/usr/local/bin/ignition/data/modules.json
       - ./third-party-modules:/third-party-modules
     environment:
-      ACCEPT_IGNITION_EULA: "Y"
-      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME:-admin}"
-      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-lab04password}"
-      IGNITION_EDITION: standard
-      GATEWAY_MODULES_ENABLED: >-
-        com.inductiveautomation.alarm-notification
-        com.inductiveautomation.eventstream,
-        com.inductiveautomation.historian,
-        com.inductiveautomation.connectors.kafka,
-        com.inductiveautomation.opcua.drivers.modbus,
-        com.inductiveautomation.opcua,
-        com.inductiveautomation.perspective,
-        com.inductiveautomation.reporting,
-        com.inductiveautomation.historian.sql,
-        com.inductiveautomation.symbol-factory,
-        com.inductiveautomation.opcua.drivers.tcpudp,
-        com.inductiveautomation.webdev,
-        com.inductiveautomation.jdbc.postgresql,
-        com.mussonindustrial.embr.charts,
-        com.mussonindustrial.embr.periscope,
-        com.mustry.historian.timescaledb,
-        com.cirruslink.mqtt.engine.gateway
-      ACCEPT_MODULE_LICENSES: >-
-        com.mussonindustrial.embr.charts,
-        com.mussonindustrial.embr.periscope,
-        com.mustry.historian.timescaledb,
-        com.cirruslink.mqtt.engine.gateway,
-      ACCEPT_MODULE_CERTS: >- 
-        com.mussonindustrial.embr.charts,
-        com.mussonindustrial.embr.periscope,
-        com.mustry.historian.timescaledb,
-        com.cirruslink.mqtt.engine.gateway,
-      GATEWAY_RESTORE_DISABLED: "true"
-      GATEWAY_NETWORK_ENABLED: "true"
-      TZ: "Europe/Brussels"
+      <<: *ignition-env
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_LOCAL:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_LOCAL:-lab04password}"
     command: >
-      -n lab04-ignition
-      -m 4096
+      -n lab04-local
+      -m 1024
       --
-      wrapper.java.initmemory=1024
+      wrapper.java.initmemory=256
       -Dignition.allowunsignedmodules=true
       -Dignition.gateway.externalModulesFolder=/third-party-modules
-      -Dignition.config.mode=core
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8088/StatusPing"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 2G
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      -Dignition.config.mode=loc
+    healthcheck: *ignition-healthcheck
+    <<: *ignition-resources
     networks:
       - default
     depends_on:
       timescaledb:
         condition: service_healthy
 
+  # --- dev gateway: populated by deploy.yml (push to main) -------------------
+  ignition-dev:
+    image: inductiveautomation/ignition:8.3.6
+    container_name: lab04-ignition-dev
+    hostname: lab04-ignition-dev
+    user: root
+    restart: unless-stopped
+    ports:
+      - "8089:8088"
+      - "8061:8060"
+    volumes:
+      - ignition-dev-data:/usr/local/bin/ignition/data
+      - ./services/modules.json:/usr/local/bin/ignition/data/modules.json
+      - ./third-party-modules:/third-party-modules
+    environment:
+      <<: *ignition-env
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_DEV:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_DEV:-lab04password}"
+    command: >
+      -n lab04-dev
+      -m 1024
+      --
+      wrapper.java.initmemory=256
+      -Dignition.allowunsignedmodules=true
+      -Dignition.gateway.externalModulesFolder=/third-party-modules
+      -Dignition.config.mode=dev
+    healthcheck: *ignition-healthcheck
+    <<: *ignition-resources
+    networks:
+      - default
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  # --- prod gateway: populated by release.yml (tag push v*) ------------------
+  ignition-prod:
+    image: inductiveautomation/ignition:8.3.6
+    container_name: lab04-ignition-prod
+    hostname: lab04-ignition-prod
+    user: root
+    restart: unless-stopped
+    ports:
+      - "8090:8088"
+      - "8062:8060"
+    volumes:
+      - ignition-prod-data:/usr/local/bin/ignition/data
+      - ./services/modules.json:/usr/local/bin/ignition/data/modules.json
+      - ./third-party-modules:/third-party-modules
+    environment:
+      <<: *ignition-env
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_PROD:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_PROD:-lab04password}"
+    command: >
+      -n lab04-prod
+      -m 1024
+      --
+      wrapper.java.initmemory=256
+      -Dignition.allowunsignedmodules=true
+      -Dignition.gateway.externalModulesFolder=/third-party-modules
+      -Dignition.config.mode=prd
+    healthcheck: *ignition-healthcheck
+    <<: *ignition-resources
+    networks:
+      - default
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  # --- shared TimescaleDB with three logical databases ----------------------
+  # POSTGRES_DB is the database created automatically at first init. The init
+  # script under services/timescaledb-init/ creates the other two so each
+  # gateway can point at its own database.
   timescaledb:
     image: timescale/timescaledb:latest-pg16
+    container_name: lab04-timescaledb
     restart: unless-stopped
     ports:
       - "5432:5432"
     volumes:
       - timescaledb-data:/var/lib/postgresql/data
+      - ./services/timescaledb-init:/docker-entrypoint-initdb.d:ro
     logging:
       driver: "json-file"
       options:
@@ -109,7 +205,7 @@ services:
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-ignition}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-ignition}"
-      POSTGRES_DB: "${POSTGRES_DB:-ignition}"
+      POSTGRES_DB: ignition_loc
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ignition}"]
       interval: 5s
@@ -118,6 +214,37 @@ services:
     networks:
       - default
 
+  # --- self-hosted GitHub Actions runner -------------------------------------
+  # Auto-registers against the repo set in RUNNER_REPO_URL using a GitHub PAT
+  # (RUNNER_GITHUB_PAT, must have `repo` scope). The runner sits on the lab's
+  # compose network, so it reaches the gateways by service name
+  # (ignition-local, ignition-dev, ignition-prod) — see the IGNITION_URL
+  # defaults in .github/workflows/deploy.yml and release.yml.
+  #
+  # Why /var/run/docker.sock is mounted: deploy.yml and release.yml use
+  # `docker cp` and `docker exec` to push project files INTO the dev/prod
+  # gateway containers. That requires the runner to talk to the host's
+  # Docker daemon. Lab convenience, NOT a production pattern.
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: lab04-runner
+    hostname: lab04-runner
+    restart: unless-stopped
+    environment:
+      REPO_URL: "${RUNNER_REPO_URL}"
+      ACCESS_TOKEN: "${RUNNER_GITHUB_PAT}"
+      RUNNER_NAME: "${RUNNER_NAME:-lab04-runner}"
+      RUNNER_SCOPE: repo
+      LABELS: "self-hosted,lab04"
+      EPHEMERAL: "false"
+      DISABLE_AUTO_UPDATE: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - default
+
 volumes:
-  ignition-data:
+  ignition-local-data:
+  ignition-dev-data:
+  ignition-prod-data:
   timescaledb-data:
