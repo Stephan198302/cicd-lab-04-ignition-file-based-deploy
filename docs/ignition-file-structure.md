@@ -20,52 +20,85 @@ What you'll see when you `ls /usr/local/bin/ignition/data` inside the container:
 
 ### `projects/`
 
-Project-level. One subdirectory per Ignition project.
+Project-level. One subdirectory per Ignition project. In 8.3 a project's resources are
+**namespaced by the module that owns them** — there is no flat `views/`/`scripts/` directory like
+8.1 had. The real shape (from the shipped [`example-project`](../projects/example-project/)):
 
 ```
 projects/
 └── <project-name>/
-    ├── project.json              ← project descriptor (title, parent, enabled)
-    ├── views/
-    │   └── <ViewName>/
-    │       └── view.json
-    ├── scripts/
-    │   └── <library>.py
-    ├── tags/
-    │   └── <provider>.json
-    ├── udts/
-    │   └── <type>.json
-    ├── resources/                ← images, attachments
-    └── transforms/               ← Perspective view transforms
+    ├── project.json                              ← descriptor: {title, description, enabled, inheritable, parent}
+    ├── com.inductiveautomation.perspective/      ← Perspective module owns its resources
+    │   ├── views/
+    │   │   ├── pages/<PageName>/
+    │   │   │   ├── view.json                      ← the view definition
+    │   │   │   ├── resource.json                  ← per-resource manifest (scope, version, signature)
+    │   │   │   └── thumbnail.png                  ← (pages only)
+    │   │   ├── templates/<group>/<Name>/view.json
+    │   │   └── common/<...>/view.json
+    │   ├── page-config/
+    │   └── session-props/
+    └── ignition/                                 ← platform-owned project resources
+        └── global-props/
+        └── script-python/
 ```
+
+The key 8.3 detail: **every resource folder carries a sibling `resource.json` manifest** next to its
+payload (`view.json`, etc.). That manifest is what the gateway reads to track the resource — and it's
+why this repo ships a skip-worktree git hook (the gateway rewrites these on every interaction).
 
 This is the bread and butter of CI/CD for Ignition. The whole `projects/<name>/` directory is what the `deploy.yml` workflow ships onto the **dev** gateway (on push to `main`) and what `release.yml` ships onto **prod** (on tag push) in Block B. On the **local** gateway it just sits there via bind mount — edit-and-scan, no copy step.
 
 ### `config/`
 
-Gateway-level config. Shared across all projects.
+Gateway-level config. Shared across all projects. In 8.3 this is organized as
+**`config/resources/<scope>/<module-id>/<resource-type>/<name>/{config.json, resource.json}`** —
+scope-first, then namespaced by the owning module, just like project resources.
+
+The **scopes** (in this repo, under [`services/config/resources/`](../services/config/resources/)):
+
+| Scope | Purpose |
+|---|---|
+| `external` | Built-in Ignition defaults (the base everything inherits from). |
+| `core` | The locally-managed, **portable** config you version and ship (DB connections, identity providers, tag providers, system properties). Inherits `external`. |
+| `loc` / `dev` / `prd` | Per-environment overrides, selected at boot via `-Dignition.config.mode=<scope>`. Inherits `core`. |
+| `local` | **Per-instance, instance-bound** state — see the `local/` note below. |
+
+Real examples from `core/` in this repo:
 
 ```
-config/
-└── resources/
-    ├── datasources/              ← database connections
-    │   └── <name>.json
-    ├── identity/                 ← identity providers (LDAP, OIDC, etc.)
-    ├── tag-history/              ← tag history connection definitions
-    └── …                         ← many other resource types
+config/resources/core/
+├── config-mode.json                                          ← scope descriptor {title, parent: "external"}
+├── ignition/
+│   ├── system-properties/{config.json, resource.json}        ← singleton (no <name> level)
+│   ├── database-connection/TimescaleDB/{config.json, resource.json}
+│   ├── identity-provider/default/{config.json, resource.json}
+│   └── tag-provider/MQTT Engine/{config.json, resource.json}
+└── com.inductiveautomation.historian/
+    └── historian-provider/TimescaleDB Historian/{config.json, resource.json}
 ```
 
-Resources here are *referenced* by projects but defined gateway-wide. A view in `projects/<x>/views/Main/view.json` might query a database — but the database connection lives in `config/resources/datasources/`. Move a project to a new gateway and you'd port the project; you'd also port the matching resources.
+`config.json` holds the actual settings; the sibling `resource.json` is the manifest the gateway
+rewrites on every change (hence skip-worktree). Resources here are *referenced* by projects but
+defined gateway-wide — a view might query a database, but the connection lives in
+`core/ignition/database-connection/<name>/`. Move a project to a new gateway and you'd port the
+project; you'd also port the matching `core/` resources.
 
 ### `modules.json`
 
-Gateway-level. A simple list of which modules to enable.
+Gateway-level. A list of which modules to enable. In this repo the source of truth is
+[`services/modules.json`](../services/modules.json), bind-mounted to `data/modules.json` on the
+`local` gateway.
 
 ```json
 {"modules": ["com.inductiveautomation.perspective", "..."]}
 ```
 
-Editing this file *plus* a config scan changes which modules the gateway loads. Versioning this is good practice — it documents the gateway's dependency surface.
+Editing this file changes which modules the gateway loads — but unlike project/config resources,
+this is **not** picked up by a scan; the gateway has to **restart** (see the table below).
+Versioning it is good practice — it documents the gateway's dependency surface. Note it is a
+sibling of `services/config/`, *not* under it, so the deploy workflows (which `docker cp`
+`./services/config/.`) do **not** ship it.
 
 ### `modules/`
 
@@ -88,9 +121,21 @@ Gateway-level binaries. `.modl` files for each installed module.
 - **In git?** No.
 - **Backup?** Often you don't even back these up — they're regenerable.
 
-### `local/`
+### `.resources/`, `migration-log-*.md`, `*.digest.json`
 
-Per-instance overrides; rarely touched. Mostly empty. Ignore unless you're doing something unusual.
+**Operational / generated.** Ignition's content-addressed blob store (`.resources/`, files named by
+SHA-256), 8.3 migration logs, and theme/font/icon digests. The gateway regenerates these; they churn
+constantly. All are excluded by [`.gitignore`](../.gitignore) — if you ever see them in `git status`,
+something is wrong with your ignore rules.
+
+### `config/resources/local/`
+
+Per-instance, **instance-bound** state — *not* "mostly empty, ignore it." In this repo it holds the
+OPC-UA client/server keystores (`com.inductiveautomation.opcua/{client,server}-keystore/`), the
+gateway's UUID (`com.inductiveautomation.opcua/uuid/`), and `local-system-properties/`. These are
+tied to *this specific gateway instance* and must **not** be copied across gateways — promoting them
+would clone one gateway's identity onto another. Treat the `local` scope as belonging to the box,
+like operational state, even though it lives under `config/`.
 
 ## The two questions to ask
 
@@ -103,14 +148,14 @@ These two questions correctly classify ~99% of `data/` contents.
 
 ## Minimal example for the lab
 
-Block A's "you do" suggests creating a project on disk manually if you don't have the Designer installed. Here's a minimal viable structure:
+Block A's "you do" suggests creating a project on disk manually if you don't have the Designer installed. In 8.3 a view must live under its owning module's namespace **and** carry a sibling `resource.json` manifest, or the gateway won't register it. Minimal viable structure:
 
 ```bash
-mkdir -p projects/sample/views/Hello
+mkdir -p "projects/sample/com.inductiveautomation.perspective/views/Hello"
 cat > projects/sample/project.json <<'EOF'
-{"title":"Sample","description":"Demo project for Block A","parent":"","enabled":true,"inheritable":false}
+{"title":"Sample","description":"Demo project for Block A","enabled":true,"inheritable":false,"parent":""}
 EOF
-cat > projects/sample/views/Hello/view.json <<'EOF'
+cat > "projects/sample/com.inductiveautomation.perspective/views/Hello/view.json" <<'EOF'
 {
   "custom": {},
   "params": {},
@@ -118,9 +163,12 @@ cat > projects/sample/views/Hello/view.json <<'EOF'
   "root": { "type": "ia.container.coord", "version": 0 }
 }
 EOF
+cat > "projects/sample/com.inductiveautomation.perspective/views/Hello/resource.json" <<'EOF'
+{"scope":"G","version":1,"restricted":false,"overridable":true,"files":["view.json"],"attributes":{}}
+EOF
 ```
 
-After triggering a project scan against the local gateway (`scripts/trigger-scan.sh projects --gateway local`), this project should appear in the local gateway UI. It won't look like much — that's the point. You'll add a real one before the cohort runs the lab.
+After triggering a project scan against the local gateway (`scripts/trigger-scan.sh projects --gateway local`), the `sample` project shows up in the gateway. It won't look like much — that's the point. (Note: `scope` `G` = gateway/global; the manifest is what makes the resource visible to the scan.)
 
 ## What changes when
 

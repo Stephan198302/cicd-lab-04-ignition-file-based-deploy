@@ -14,14 +14,14 @@ Reference reading for Block B. The complete pattern in five steps, the tradeoffs
 ```
 
 1. **Commit** to `projects/<name>/` or `services/config/` in git.
-2. **Check out** the repo on the bundled self-hosted runner.
+2. **Check out** the repo on the self-hosted runner or the runner hosted by Github.
 3. **Prune** the working tree per `.deployignore` — exclude lab files, READMEs, secrets, anything that shouldn't reach the gateway.
 4. **Ship** the files into the target gateway's container. How depends on the gateway:
    - **`local`** uses a bind mount on `./projects/` and `./services/config/`, so the files are already on disk inside the gateway. No copy step needed.
    - **`dev` / `prod`** use named volumes. The workflows `docker exec ... rm -rf` to wipe the destination, then `docker cp` the working tree in. This wipe-then-copy gives you "deleted in repo → deleted in gateway" semantics that `rsync --delete` would have given you with a bind mount.
 5. **Trigger** a project + config scan via `POST /data/api/v1/scan/{projects,config}` with that gateway's API key.
 
-That's it. No SSH, no SCP, no remote shell. The bundled runner shares the host's Docker daemon (mounted `/var/run/docker.sock`), so it can write into the dev/prod containers without filesystem boundaries. The gateway has an HTTP API that picks up disk changes.
+That's it. No SSH, no SCP, no remote shell. The gateway has an HTTP API that picks up disk changes.
 
 ## Why this works (and why people get it wrong)
 
@@ -67,9 +67,9 @@ In the lab the keys live in `.env` (for manual scripts) as `IGNITION_API_KEY_LOC
 
 Three patterns, in increasing order of operational maturity:
 
-1. **`git revert` + re-deploy.** The deploys are idempotent; reverting a bad PR and pushing again restores the dev gateway. Most cohorts start here. Works for most cases.
+1. **`git revert` / `git reset` + re-deploy.** The deploys are idempotent; reverting a bad PR and pushing again restores the dev gateway. Most cohorts start here. Works for most cases.
 2. **Tagged deploys + re-deploy a known-good tag.** This lab's `release.yml` is built for this: `workflow_dispatch` takes a tag as input, so re-deploying `v0.1.0` to prod is two clicks in the GitHub UI. Lab 05 extends this pattern across multiple gateways.
-3. **Snapshot before deploy.** The deploy workflow takes a `gwbk` of the gateway *before* copying. Rollback is "restore the backup." Heaviest; only worth it for high-stakes deploys. Lab 07 covers gateway backups properly.
+3. **Snapshot before deploy.** A mature workflow would take a `gwbk` of the gateway *before* copying, so rollback is "restore the backup." This lab's workflows do **not** do this (their steps are checkout → verify → prune → `rm -rf` + `docker cp` → scan → smoke-check); it's the heaviest pattern, only worth it for high-stakes deploys, and is left as a stretch. Lab 07 covers gateway backups properly.
 
 Lab 04 ships patterns 1 and 2 (the latter as a hand-cranked workflow_dispatch); pattern 3 is left as a stretch.
 
