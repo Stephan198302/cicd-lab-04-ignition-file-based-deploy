@@ -12,7 +12,7 @@ You should leave this block able to:
 
 - Describe the file-based deploy pattern in five steps: **checkout → prune → ship → scan → verify**
 - Run a deploy manually against the local gateway and watch it pick up the change
-- Wire the same flow into the bundled GitHub Actions self-hosted runner so a PR merge promotes a change from **local** → **dev**, and a tag push promotes it to **prod**
+- Wire the flow into the bundled GitHub Actions self-hosted runner following **Git Flow**: a merge into `develop` promotes a change to **dev**, and a tag cut from `main` promotes it to **prod**
 - Read [`.deployignore`](../.deployignore) and explain why each pattern is in there
 
 ## Pre-flight
@@ -23,7 +23,12 @@ scripts/setup.sh    # idempotent — safe even if the stack is already up
 
 You'll need:
 
-- **A fork of this repo on GitHub.** The bundled runner registers against your fork, not the upstream.
+- **A fork of this repo on GitHub, with Actions enabled.** The bundled runner registers against your fork, not the upstream. Forks ship with workflows **disabled** — open your fork's *Actions* tab and click "I understand my workflows, go ahead and enable them" before Part 3, or nothing will trigger.
+- **A `develop` branch in your fork.** Git Flow's integration branch. Create it once (Part 3 reminds you):
+  ```bash
+  git checkout -b develop && git push -u origin develop
+  ```
+  Optionally set it as the fork's **default branch** (*Settings → Branches*) so feature PRs target it by default.
 - **A GitHub Personal Access Token with `repo` scope.** Put it in `.env` as `RUNNER_GITHUB_PAT`. The bundled `github-runner` container in `docker-compose.yaml` uses it to auto-register itself — no manual `docker run`, no registration tokens to copy.
 - **An Ignition API key per gateway you want to scan.** Generate each in the gateway UI: *Config → Security → API Keys → New*. Scope it to `Project Scan` and `Config Scan`. Copy the value once — you can't read it back. Drop them into `.env` as `IGNITION_API_KEY_LOCAL` / `_DEV` / `_PROD`.
 - **GitHub Environments** for the deploy workflows. `lab-gateway-dev` for `deploy.yml`, `lab-gateway-prod` for `release.yml`. Each needs a secret `IGNITION_API_KEY` (the value from the matching gateway). Defaults for the URL + container variables are already what the bundled runner expects, so you usually don't need to set them.
@@ -36,8 +41,8 @@ The file-based pattern, demoed end-to-end across the three lab gateways.
 
 The five steps:
 
-1. **Developer commits** to `projects/<name>/` in git.
-2. **Runner checks out** the merged commit. The bundled `github-runner` container handles this.
+1. **Developer commits** to `projects/<name>/` on a `feature/*` branch off `develop`, then opens a PR into `develop`.
+2. **Runner checks out** the merged commit (after the PR merges into `develop`). The bundled `github-runner` container handles this.
 3. **Runner prunes** the working tree per `.deployignore` so lab-only files (READMEs, docs, scripts) don't pollute the gateway.
 4. **Runner ships** the files into the target gateway container via `docker cp` (dev and prod use named volumes — no shared filesystem with the runner).
 5. **Runner calls** `POST /data/api/v1/scan/{projects,config}` to make the gateway notice the change without a restart.
@@ -144,32 +149,45 @@ In your fork:
 
 You **don't** need to set `IGNITION_URL` or `IGNITION_CONTAINER` variables unless your runner topology differs from the lab's — the workflow defaults match the bundled runner.
 
-### Part 3 — Trigger `deploy.yml` (15 min)
+### Part 3 — Ship to dev via `develop` (15 min)
 
-> **Prerequisite:** Part 3's PR needs the `sample` project to be *committed*. The I-do/We-do created it on disk but left it untracked, so commit it first:
+> **One-time setup:** Git Flow needs a `develop` branch. If your fork doesn't have one yet:
+> ```bash
+> git checkout -b develop && git push -u origin develop
+> ```
+>
+> **Prerequisite:** Part 3's change needs the `sample` project to be *committed* (the I-do/We-do left it untracked). Commit it to `develop` first:
 > ```bash
 > git add projects/sample && git commit -m "Add sample project"
+> git push origin develop
 > ```
-> No `sample` project (e.g. you skipped the demo)? Touch any view under the shipped `projects/example-project/` instead — the flow is identical.
+> No `sample` project (e.g. you skipped the demo)? Use any view under the shipped `projects/example-project/` instead — the flow is identical.
 
-1. Open a PR that touches `projects/sample/com.inductiveautomation.perspective/views/Hello/view.json` — change the height value.
-2. Watch [`ci.yml`](../.github/workflows/ci.yml) run on the PR. It runs on `ubuntu-latest` (free, no self-hosted needed), validates JSON, `.deployignore`, and the workflow files themselves.
-3. Merge the PR to `main`. [`deploy.yml`](../.github/workflows/deploy.yml) fires because of the `paths:` filter.
+1. Branch a feature off `develop` and change a view:
+   ```bash
+   git checkout develop && git checkout -b feature/tweak-view
+   # edit projects/sample/com.inductiveautomation.perspective/views/Hello/view.json — change the height value
+   git commit -am "Tweak Hello view height"
+   git push -u origin feature/tweak-view
+   ```
+2. Open a PR **into `develop`**. Watch [`ci.yml`](../.github/workflows/ci.yml) run on `ubuntu-latest` (free, no self-hosted needed): it validates JSON, `.deployignore`, and the workflow files themselves.
+3. Merge the PR into `develop`. [`deploy.yml`](../.github/workflows/deploy.yml) fires because of the `paths:` filter (and only on `develop`).
 4. Watch the workflow run. The interesting step is **Ship projects and config into gateway container** — this is the `docker cp` half. Then **Trigger gateway scan** posts to `/data/api/v1/scan/{projects,config}`.
 5. Verify in http://localhost:8089 — the view's height should match what you pushed.
 
-### Part 4 — Trigger `release.yml` (10 min)
+### Part 4 — Release to prod via `main` + tag (10 min)
 
-Same files, different trigger: a tag push promotes from dev to prod.
+Cut a release the Git Flow way: bring `develop` to `main` (here, a simple merge stands in for a `release/*` branch), then tag it. The **tag** — not the merge — is what ships to prod.
 
 ```bash
-git checkout main
-git pull
+git checkout main && git pull
+git merge --no-ff develop -m "Release v0.1.0"
+git push origin main
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-[`release.yml`](../.github/workflows/release.yml) fires on the tag. Watch it run, then check http://localhost:8090 — the change you merged earlier (and just released) should be visible on the prod gateway.
+[`release.yml`](../.github/workflows/release.yml) fires on the tag. Watch it run, then check http://localhost:8090 — the change you merged through `develop` (and just released) should be visible on the prod gateway. Note the merge into `main` did nothing on its own; the **tag** is the trigger.
 
 ### Part 5 — Failure cases (optional, ~5 min)
 
@@ -184,10 +202,10 @@ You're finished with Block B when:
 
 - [ ] The bundled runner shows **online** in your fork (*Settings → Actions → Runners*, `self-hosted, lab04`).
 - [ ] Both GitHub environments (`lab-gateway-dev`, `lab-gateway-prod`) exist, each with an `IGNITION_API_KEY` secret.
-- [ ] A merged PR triggered `deploy.yml` and the change is visible on the **dev** gateway (:8089).
-- [ ] A `v*` tag triggered `release.yml` and the change is visible on the **prod** gateway (:8090).
+- [ ] You created a `develop` branch; a PR merged **into `develop`** triggered `deploy.yml` and the change is visible on the **dev** gateway (:8089).
+- [ ] A `v*` tag on `main` triggered `release.yml` and the change is visible on the **prod** gateway (:8090).
 - [ ] You broke **one** deploy on purpose (Part 5) and can describe the failure mode and recovery.
-- [ ] You can explain, in five steps, what the runner does between "PR merged" and "gateway reloaded."
+- [ ] You can name the Git Flow branch → gateway mapping (`develop` → dev, tag on `main` → prod) and explain, in five steps, what the runner does between "merge" and "gateway reloaded."
 
 ## Stretch challenge `[OPTIONAL]`
 
@@ -201,6 +219,7 @@ So the question to chew on: why does the file-based scan pattern work beautifull
 ## Debrief (10 min)
 
 - What happens if the runner crashes mid-deploy? The `docker cp` is *not* atomic — the gateway could see a partial filesystem. What does the gateway do if a project is partially copied?
-- What's the rollback story? (Hint: `git revert` + re-deploy is one option. `release.yml` accepts a `workflow_dispatch` with a tag input — what does that buy you?)
+- What's the rollback story? Note Git Flow gives you two levers: revert a bad merge on `develop` (re-deploys **dev**), or re-deploy a known-good tag to **prod** via `release.yml`'s `workflow_dispatch`. Which applies to which gateway, and why?
+- Why does merging into `main` deploy *nothing* until you tag? What does pinning prod to a tag (instead of "latest on main") buy you operationally?
 - Where does `.deployignore` matter most? When *would* you want lab-only files on the gateway?
 - For your customer's real gateway: where would the self-hosted runner sit on the network? What does it need access to that GitHub-hosted runners don't have?

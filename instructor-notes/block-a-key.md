@@ -114,3 +114,4 @@ Before students leave Block A:
 - Remind them Block B uses the bundled `github-runner` container — they need a GitHub PAT (`repo` scope) in `.env` as `RUNNER_GITHUB_PAT` and `RUNNER_REPO_URL` pointed at their fork. `docker compose up -d github-runner` (or a `docker compose restart github-runner` after editing `.env`) brings it online.
 - Have them generate an API key in each gateway UI now (local first, dev/prod can wait until they boot those). Store in `.env` as `IGNITION_API_KEY_LOCAL/_DEV/_PROD` and as environment-scoped secrets on the `lab-gateway-dev` and `lab-gateway-prod` GitHub environments.
 - Verify all three gateways (`docker compose ps`) are running. If they tore down, Block B starts cold.
+- Have them create the Git Flow `develop` branch in their fork now (`git checkout -b develop && git push -u origin develop`) — Block B deploys on merges into `develop`, and a missing branch is the #1 "nothing deployed" stumble.

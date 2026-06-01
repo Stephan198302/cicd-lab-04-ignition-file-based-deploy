@@ -7,12 +7,13 @@
 By the end of Block B, the participant has:
 
 1. The bundled `github-runner` container online — visible in their fork's *Settings → Actions → Runners* as `self-hosted, lab04`.
-2. Two GitHub environments configured (`lab-gateway-dev`, `lab-gateway-prod`), each with `IGNITION_API_KEY` set as an environment-scoped secret.
-3. Edited `projects/sample/com.inductiveautomation.perspective/views/Hello/view.json` in a PR, watched CI pass on `ubuntu-latest`, merged to main. (The sample project must be committed first — the I-do leaves it untracked.)
-4. Watched `deploy.yml` run end-to-end on their bundled runner: checkout → verify prereqs → prune → ship (docker cp) → scan → smoke-check.
-5. Verified the change in the **dev** gateway UI (http://localhost:8089).
-6. Pushed a `v*` tag and watched `release.yml` promote the same change to **prod** (http://localhost:8090).
-7. Deliberately broken at least one deploy and read the failure mode.
+2. A `develop` branch created in their fork (Git Flow's integration branch).
+3. Two GitHub environments configured (`lab-gateway-dev`, `lab-gateway-prod`), each with `IGNITION_API_KEY` set as an environment-scoped secret.
+4. Edited a view on a `feature/*` branch, opened a PR **into `develop`**, watched CI pass on `ubuntu-latest`, merged. (The sample project must be committed to `develop` first — the I-do leaves it untracked.)
+5. Watched `deploy.yml` run end-to-end on their bundled runner: checkout → verify prereqs → prune → ship (docker cp) → scan → smoke-check.
+6. Verified the change in the **dev** gateway UI (http://localhost:8089).
+7. Merged `develop` → `main`, pushed a `v*` tag, and watched `release.yml` promote the same change to **prod** (http://localhost:8090).
+8. Deliberately broken at least one deploy and read the failure mode.
 
 If any of these is missing, especially #7, push them to complete. The failure cases are half the lesson.
 
@@ -20,8 +21,8 @@ If any of these is missing, especially #7, push them to complete. The failure ca
 
 Use this on the board if students need a re-walk:
 
-1. **Commit:** developer edits `projects/sample/com.inductiveautomation.perspective/views/Hello/view.json`, commits, pushes a PR. PR merges to main.
-2. **Checkout:** the bundled runner picks up the workflow, checks out the merged commit.
+1. **Commit:** developer edits `projects/sample/com.inductiveautomation.perspective/views/Hello/view.json` on a `feature/*` branch, opens a PR **into `develop`**. PR merges into `develop`.
+2. **Checkout:** the bundled runner picks up the workflow (push to `develop`), checks out the merged commit.
 3. **Prune:** the runner reads `.deployignore` and removes those files from the working tree before they can ship.
 4. **Ship:** `docker exec` wipes the target's `projects/` and `config/` dirs, then `docker cp` writes the working tree into the dev gateway's container.
 5. **Scan:** `scripts/trigger-scan.sh both` posts to `/data/api/v1/scan/{projects,config}` against the dev gateway. Gateway re-reads disk.
@@ -31,7 +32,7 @@ Use this on the board if students need a re-walk:
 ```yaml
 on:
   push:
-    branches: [main]                # deploy only on merged PRs (or direct main pushes)
+    branches: [develop]             # Git Flow: deploy on merges into the integration branch
     paths:                          # skip workflow on docs-only changes
       - "projects/**"
       - "services/config/**"
@@ -78,6 +79,7 @@ jobs:
 Things to highlight in the grade:
 
 - **Least-privilege permissions.** Default `GITHUB_TOKEN` perms are too broad. `contents: read` is enough.
+- **`branches: [develop]`.** Git Flow: only merges into the integration branch deploy to dev. A push to `main` does *not* deploy — prod is reached by tagging (`release.yml`). This is the most common point of confusion (see stumbles).
 - **`paths:` filter.** Without this, every README change retriggers the deploy. With it, docs-only changes don't.
 - **`concurrency` block.** Without this, two pushes in quick succession could deploy out of order. `cancel-in-progress: false` says: queue the new run, don't cancel the in-flight one. Cancellation mid-`docker cp` would leave the gateway in a partial state.
 - **`environment:` scoping.** Secrets and variables are scoped to `lab-gateway-dev`. If a participant sets `IGNITION_API_KEY` at the repo level, it won't be picked up — and that's deliberate. Environments give you per-target secrets and deploy history "for free."
@@ -88,6 +90,8 @@ Things to highlight in the grade:
 
 ## Common stumbles
 
+- **"I merged my PR but nothing deployed."** Two Git Flow causes: (a) they merged into `main` instead of `develop` — only `develop` triggers `deploy.yml`; (b) their fork has no `develop` branch yet, so the PR targeted `main` by default. Fix: create `develop` (`git checkout -b develop && git push -u origin develop`), ideally set it as the fork's default branch.
+- **"I pushed to `main` and expected prod to update."** Merging into `main` deploys nothing on its own — prod is reached by **tagging** (`git tag vX.Y.Z && git push origin vX.Y.Z`), which fires `release.yml`. This is by design: prod always runs a named version.
 - **"My runner isn't picking up jobs."** Three checks: container running (`docker compose ps github-runner`), `RUNNER_REPO_URL` points at the **fork**, `RUNNER_GITHUB_PAT` is a real PAT (not the placeholder). `docker compose logs github-runner` usually surfaces the issue immediately.
 - **"The deploy ran but my change isn't visible in the gateway."** Walk them through: did the `Ship` step actually succeed (look at the docker cp output)? Did the scan return HTTP 200 (look at `trigger-scan.sh` output — it pretty-prints the response with `lastScanTimestamp`)? Are they looking at the **dev** gateway (8089) or the **local** gateway (8088)?
 - **"The deploy 403'd on the scan step."** API key on the `lab-gateway-dev` environment doesn't have the right role. Needs Project Scan + Config Scan permissions. Easy to skip on creation.
@@ -130,11 +134,11 @@ This is the most teaching-rich segment. For each failure cause, walk through:
 
 The shipped lab doesn't formally implement rollback — Block B intentionally leaves this open. Three patterns to mention:
 
-1. **`git revert` + re-merge.** Idempotent; works for most cases.
-2. **`release.yml` workflow_dispatch with an older tag.** This is the canonical "redeploy v0.1.0" pattern. Quick way to roll back prod without touching git history.
+1. **`git revert` on `develop` + re-merge.** Idempotent; reverting the bad merge on `develop` re-runs `deploy.yml` and restores **dev**. Works for most cases.
+2. **`release.yml` workflow_dispatch with an older tag.** This is the canonical "redeploy v0.1.0" pattern for **prod**. Quick way to roll back without touching git history — and it only works because Git Flow pins every prod deploy to a tag.
 3. **Snapshot before deploy.** Take a `gwbk` before deploying. Lab-07 covers gateway backups properly.
 
-If a participant asks *"what if the new view is bad and we need to revert *now*?"*, the answer for dev is option 1; for prod, option 2 is faster.
+If a participant asks *"what if the new view is bad and we need to revert *now*?"*, the Git Flow answer maps to the branch: revert on `develop` for **dev** (option 1); re-deploy the previous tag for **prod** (option 2, faster).
 
 ## Stretch — gateway-level config
 

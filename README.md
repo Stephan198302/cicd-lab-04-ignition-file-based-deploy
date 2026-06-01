@@ -2,7 +2,7 @@
 
 Day 3, Blocks A and B of the [CI/CD for Ignition Masterclass](https://github.com/mustry-academy/cicd-masterclass).
 
-> Decode the Ignition 8.3 file structure, then build a file-based deploy pipeline that promotes project changes from a local working gateway, through a dev environment on push to main, to a prod environment on tag release — all with a hot scan, no gateway restarts.
+> Decode the Ignition 8.3 file structure, then build a file-based deploy pipeline that promotes project changes from a local working gateway, through a dev environment on push to `develop`, to a prod environment on a tag release cut from `main` — all with a hot scan, no gateway restarts. The pipeline follows **Git Flow**.
 
 This is the **first lab where Ignition shows up**. Labs 01–03 deliberately stayed on a generic Python stack so we could teach Git, branching, PRs, linters, and GitHub Actions without the Ignition file format adding noise. The plumbing is solid; now we point it at three real gateways that simulate a local → dev → prod promotion flow.
 
@@ -30,8 +30,8 @@ Once setup finishes you have three Ignition gateways:
 | Gateway | URL | Source of project files |
 |---|---|---|
 | `local` | http://localhost:8088 | Bind-mounted from `./projects/` and `./services/config/` — edits show up immediately |
-| `dev` | http://localhost:8089 | Empty until `deploy.yml` runs on push to `main` |
-| `prod` | http://localhost:8090 | Empty until `release.yml` runs on tag push `v*` |
+| `dev` | http://localhost:8089 | Empty until `deploy.yml` runs on push to `develop` |
+| `prod` | http://localhost:8090 | Empty until `release.yml` runs on tag push `v*` (cut from `main`) |
 
 Login to any of them with the credentials from `.env` (`GATEWAY_ADMIN_USERNAME_LOCAL/_DEV/_PROD`, default `admin / lab04password`).
 
@@ -60,8 +60,8 @@ cicd-lab-04-ignition-file-based-deploy/
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                      ← PR validation (ubuntu-latest, free)
-│   │   ├── deploy.yml                  ← push to main → dev gateway (self-hosted)
-│   │   └── release.yml                 ← tag v* → prod gateway (self-hosted)
+│   │   ├── deploy.yml                  ← push to develop → dev gateway (self-hosted)
+│   │   └── release.yml                 ← tag v* on main → prod gateway (self-hosted)
 │   ├── actionlint.yaml                 ← declares the self-hosted `lab04` runner label
 │   └── pull_request_template.md
 ├── exercises/
@@ -102,17 +102,42 @@ The single TimescaleDB hosts three logical databases (`ignition_loc`, `ignition_
 
 Memory is set to 1 GB per gateway via Compose limits. Tight but workable; bump it in `docker-compose.yaml` if you see GC pauses.
 
+## Branching model (Git Flow)
+
+This lab uses **Git Flow**: two long-lived branches map to the two deployed gateways.
+
+```
+feature/*  ─┐
+            ├─PR→  develop ──push→  deploy.yml ──docker cp + scan──→ DEV gateway
+hotfix/* ─┐ │
+          │ └── release/* ─PR→ main ──tag vX.Y.Z→ release.yml ──docker cp + scan──→ PROD gateway
+          └────────────────────────┘
+```
+
+| Branch | Role | What CI does |
+|---|---|---|
+| `develop` | Integration — feature branches merge here | `deploy.yml` ships the working tree to the **dev** gateway |
+| `main` | Release-ready — only `release/*` and `hotfix/*` merge here | nothing on its own; you **tag** `vX.Y.Z` to release |
+| `feature/*` | Day-to-day work, branched off `develop` | `ci.yml` validates the PR into `develop` |
+| `release/*` / `hotfix/*` | Stabilize a release / urgent fix, merged into `main` (and back to `develop`) | `ci.yml` validates the PR into `main` |
+
+The `release/*` branch is your **freeze point**: cut it when `develop` is exactly what you want in prod, merge it into `main`, and tag. The tag — not the merge — is what `release.yml` ships, so prod always runs a named, re-deployable version.
+
+> **Setup:** Git Flow needs a `develop` branch. Create it once in your fork
+> (`git checkout -b develop && git push -u origin develop`) and, optionally, set it as the fork's
+> **default branch** (*Settings → Branches*) so feature PRs target it by default.
+
 ## A note on the CI/CD workflows
 
 Three workflows under [`.github/workflows/`](./.github/workflows/):
 
 | File | Trigger | Runner | Purpose |
 |---|---|---|---|
-| [`ci.yml`](./.github/workflows/ci.yml) | PR to `main` | `ubuntu-latest` (free) | Validate JSON, `.deployignore` syntax, and the workflow files themselves. |
-| [`deploy.yml`](./.github/workflows/deploy.yml) | Push to `main` (deploy paths only), manual | `[self-hosted, lab04]` | File-based deploy to the **dev** gateway via `docker cp`. |
-| [`release.yml`](./.github/workflows/release.yml) | Tag `v*`, manual | `[self-hosted, lab04]` | File-based deploy to the **prod** gateway. Same mechanics, different environment. |
+| [`ci.yml`](./.github/workflows/ci.yml) | PR to `develop` or `main` | `ubuntu-latest` (free) | Validate JSON, `.deployignore` syntax, and the workflow files themselves. |
+| [`deploy.yml`](./.github/workflows/deploy.yml) | Push to `develop` (deploy paths only), manual | `[self-hosted, lab04]` | File-based deploy to the **dev** gateway via `docker cp`. |
+| [`release.yml`](./.github/workflows/release.yml) | Tag `v*` (on `main`), manual | `[self-hosted, lab04]` | File-based deploy to the **prod** gateway. Same mechanics, different environment. |
 
-> `deploy.yml` has a `paths:` filter (`projects/**`, `services/config/**`, `.deployignore`, `scripts/trigger-scan.sh`), so a push that only touches docs or the README does **not** trigger a deploy — edit project or config content to see it fire.
+> `deploy.yml` has a `paths:` filter (`projects/**`, `services/config/**`, `.deployignore`, `scripts/trigger-scan.sh`, `scripts/lib.sh`, `.github/workflows/deploy.yml`), so a push to `develop` that only touches docs or the README does **not** trigger a deploy — edit project or config content to see it fire.
 
 Both deploy workflows need:
 

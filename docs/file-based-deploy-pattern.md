@@ -13,7 +13,7 @@ Reference reading for Block B. The complete pattern in five steps, the tradeoffs
 └───────────────┘    └────────────┘    └───────────┘    └────────────┘    └────────┘
 ```
 
-1. **Commit** to `projects/<name>/` or `services/config/` in git.
+1. **Commit** to `projects/<name>/` or `services/config/` in git — on a `feature/*` branch off `develop` (see *Git Flow* below).
 2. **Check out** the repo on the self-hosted runner or the runner hosted by Github.
 3. **Prune** the working tree per `.deployignore` — exclude lab files, READMEs, secrets, anything that shouldn't reach the gateway.
 4. **Ship** the files into the target gateway's container. How depends on the gateway:
@@ -22,6 +22,21 @@ Reference reading for Block B. The complete pattern in five steps, the tradeoffs
 5. **Trigger** a project + config scan via `POST /data/api/v1/scan/{projects,config}` with that gateway's API key.
 
 That's it. No SSH, no SCP, no remote shell. The gateway has an HTTP API that picks up disk changes.
+
+## Git Flow: which branch ships where
+
+This lab wires the pattern to **Git Flow**, so a branch — not a manual run — decides which gateway gets the files:
+
+```
+feature/* ─PR→ develop ──push→ deploy.yml ──→ DEV gateway
+              release/* ─PR→ main ──tag vX.Y.Z→ release.yml ──→ PROD gateway
+```
+
+- **`develop`** is the integration branch. Merge a `feature/*` PR into it and `deploy.yml` ships the working tree to **dev**. This is the fast inner loop — many small merges a day.
+- **`main`** only takes `release/*` and `hotfix/*` merges. Merging there ships *nothing* by itself; you **tag** `vX.Y.Z` on `main` and that tag fires `release.yml` to **prod**.
+- The tag is what prod runs, so every prod deploy is a named, re-deployable version — that's what makes the `workflow_dispatch` rollback (re-deploy an old tag) work. The `release/*` branch is your freeze point: cut it when `develop` is where you want prod to be.
+
+The `local` gateway sits outside Git Flow entirely — it's your bind-mounted scratchpad (edit-and-scan, no branch, no PR).
 
 ## Why this works (and why people get it wrong)
 

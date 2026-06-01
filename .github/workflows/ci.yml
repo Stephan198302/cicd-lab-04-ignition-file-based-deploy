@@ -1,4 +1,8 @@
-# PR validation — runs on every pull request targeting main.
+# PR validation — runs on every pull request into a long-lived Git Flow branch.
+#
+# Git Flow has two long-lived branches, so we validate PRs into both:
+#   develop  ← feature/* branches merge here (then deploy.yml ships to dev)
+#   main     ← release/* and hotfix/* branches merge here (then a tag ships to prod)
 #
 # Purpose: catch the cheap stuff before a deploy gets near it. We DON'T spin
 # up Ignition here; that's left to the deploy workflow on its self-hosted
@@ -8,7 +12,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop, main]
 
 # Cancel any in-flight CI run for this PR when a new commit lands.
 concurrency:

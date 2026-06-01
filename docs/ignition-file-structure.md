@@ -47,7 +47,7 @@ The key 8.3 detail: **every resource folder carries a sibling `resource.json` ma
 payload (`view.json`, etc.). That manifest is what the gateway reads to track the resource — and it's
 why this repo ships a skip-worktree git hook (the gateway rewrites these on every interaction).
 
-This is the bread and butter of CI/CD for Ignition. The whole `projects/<name>/` directory is what the `deploy.yml` workflow ships onto the **dev** gateway (on push to `main`) and what `release.yml` ships onto **prod** (on tag push) in Block B. On the **local** gateway it just sits there via bind mount — edit-and-scan, no copy step.
+This is the bread and butter of CI/CD for Ignition. The whole `projects/<name>/` directory is what the `deploy.yml` workflow ships onto the **dev** gateway (on push to `develop`) and what `release.yml` ships onto **prod** (on tag push from `main`) in Block B. On the **local** gateway it just sits there via bind mount — edit-and-scan, no copy step.
 
 ### `config/`
 

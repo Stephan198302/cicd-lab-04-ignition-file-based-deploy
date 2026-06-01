@@ -1,8 +1,12 @@
-# Release to the prod gateway on tag push.
+# Release to the prod gateway on tag push (Git Flow release).
+#
+# Git Flow: a release is cut from `develop` via a `release/*` branch, merged into
+# `main`, and tagged `vX.Y.Z`. That tag fires this workflow. The tag pins the
+# exact commit prod ships — "release what you froze on main".
 #
 # Triggers on tags matching `v*` (e.g. v1.0.0, v2.3.1-rc1). Also supports
-# manual dispatch with a tag input — useful for redeploying a specific
-# released version.
+# manual dispatch with a tag input — that's the rollback button: re-deploy any
+# already-released tag to prod without touching git.
 #
 # Mechanics: file-based deploy via `docker cp` into the prod gateway's
 # container (named volume, not a bind mount), then trigger a scan.
