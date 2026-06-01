@@ -22,8 +22,6 @@ tests/
 third-party-modules/
 db-init/
 services/config/local/
-# learner's solo notes from Block A (gitignored anyway)
-NOTES.local.md
 
 # OS noise
 .DS_Store
