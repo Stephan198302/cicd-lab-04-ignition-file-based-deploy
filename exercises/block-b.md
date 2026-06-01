@@ -178,8 +178,6 @@ Cause one of these on purpose and read the workflow output:
 - Set the wrong API key in `lab-gateway-dev`'s environment secret → scan step 403s. Files made it into the container, but the gateway didn't reload. *What's your recovery story?*
 - Stop the dev container (`docker compose stop ignition-dev`) and trigger a deploy → the pre-flight step fails with "container is in state 'exited', expected 'running'". Better than failing halfway through.
 
-End state matches `block-b-end`.
-
 ## Definition of done
 
 You're finished with Block B when:
