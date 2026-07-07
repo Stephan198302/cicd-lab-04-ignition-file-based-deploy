@@ -1,6 +1,10 @@
 #!/bin/bash
-# Shared helpers for setup.sh / trigger-scan.sh / teardown.sh.
+# Shared helpers for setup.sh / scan.sh / teardown.sh.
 # Sourced, not executed: . "$(dirname "$0")/lib.sh"
+
+# Colors and shared constants below are consumed by the scripts that source
+# this file, so shellcheck cannot see their use from here.
+# shellcheck disable=SC2034
 
 # Guard against direct execution.
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
@@ -29,7 +33,7 @@ else
 fi
 
 # Names of the three gateways the lab ships with. Used for iteration in
-# setup.sh and validation in trigger-scan.sh.
+# setup.sh and validation in scan.sh.
 LAB_GATEWAYS=(local dev prod)
 
 # Map a gateway name → its host-facing URL.

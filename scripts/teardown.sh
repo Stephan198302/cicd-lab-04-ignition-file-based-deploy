@@ -8,6 +8,7 @@
 
 set -euo pipefail
 
+# shellcheck source=lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 cd "$PROJECT_ROOT"
 

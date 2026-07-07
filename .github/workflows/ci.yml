@@ -6,7 +6,9 @@
 #
 # Purpose: catch the cheap stuff before a deploy gets near it. We DON'T spin
 # up Ignition here; that's left to the deploy workflow on its self-hosted
-# runner. The validation we do run is fast and free on ubuntu-latest.
+# runner. The linters below mirror the ones Lab 03 introduced (yamllint,
+# actionlint, shellcheck, ign-lint) plus this lab's own JSON / .deployignore
+# checks, and they all run free on ubuntu-latest.
 
 name: CI
 
@@ -19,11 +21,52 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default.
+permissions:
+  contents: read
+
 jobs:
+  # Job ids double as the status-check names branch protection matches on.
+  # Keep them stable — renaming silently orphans required checks configured on
+  # develop / main.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python tools
+        run: pip install yamllint==1.35.1 ign-lint==0.6.1
+
+      - name: yamllint
+        run: yamllint -c .yamllint.yml .
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+
+      - name: shellcheck
+        # -x follows the sourced lib.sh; source resolution comes from .shellcheckrc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck -x scripts/*.sh
+
+      - name: ignition-lint (Perspective views)
+        run: ign-lint --config rule_config.json --files "projects/**/view.json"
+
+      - name: docker compose config
+        run: docker compose config -q
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -64,13 +107,3 @@ jobs:
             echo ".deployignore patterns look fine."
           fi
           exit $fail
-
-      - name: actionlint
-        # Statically check every workflow file in .github/workflows/.
-        # Catches typos, missing inputs, shellcheck issues inside `run:` blocks.
-        # We download the upstream binary directly to avoid third-party action
-        # dependencies; swap to `raven-actions/actionlint@v2` if you'd rather
-        # use a wrapped action.
-        run: |
-          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          ./actionlint -color
