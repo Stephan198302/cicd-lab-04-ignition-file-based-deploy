@@ -22,6 +22,6 @@
   "scheduledBackupsEnabled": false,
   "scriptMessageEncoding": "Protobuf",
   "secondsBeforeFailover": 60,
-  "systemName": "lab04-ignition",
+  "systemName": "lab04-local",
   "useCondensedDialogFont": false
 }
