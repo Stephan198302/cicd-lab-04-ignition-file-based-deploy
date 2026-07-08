@@ -66,14 +66,14 @@ Config Scan**, and set it as the `IGNITION_API_KEY` secret on the matching GitHu
 (`lab-gateway-dev` / `lab-gateway-prod`). Keys are **per-gateway** — a dev key won't authenticate
 against prod.
 
-## I merged my PR but nothing deployed (Git Flow)
+## I merged my PR but nothing deployed (GitHub Flow)
 
-This lab uses Git Flow — the branch decides the gateway:
+This lab uses GitHub Flow — the branch decides the gateway:
 
-- **`deploy.yml` only fires on pushes to `develop`.** If you merged into `main`, nothing ships to dev. Merge feature branches into `develop` instead.
-- **No `develop` branch?** Then PRs default to `main`. Create it once: `git checkout -b develop && git push -u origin develop` (and set it as the fork's default branch under *Settings → Branches*).
+- **Did your PR actually merge into `main`?** `deploy.yml` fires on pushes to `main`, and merging a PR is what produces that push. If the PR is still open (or merged into some other branch), nothing ships to dev.
+- **Did the change touch a deploy path?** Confirm it hit `projects/**` or `services/config/**`; a docs-only push to `main` is filtered out by the `paths:` filter.
+- **Is Actions enabled on your fork?** No enabled workflows means no runs at all. Check *Settings → Actions* on your fork.
 - **Prod doesn't update on a `main` merge — that's intentional.** Prod is reached by **tagging**: `git tag vX.Y.Z && git push origin vX.Y.Z` fires `release.yml`.
-- Also confirm the change touched a deploy path (`projects/**` or `services/config/**`); a docs-only push to `develop` is filtered out.
 
 ## The deploy ran but my change isn't visible
 

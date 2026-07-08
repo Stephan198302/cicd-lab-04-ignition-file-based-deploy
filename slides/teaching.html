@@ -270,7 +270,7 @@ body{
     </div>
     <ul class="checks" style="max-width:960px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You already have:</b> git fluency, branching &amp; PRs done right, validation as a safety net, workflows/jobs/steps, a self-hosted runner, and Ignition under version control from Lab 02. Every one of those comes back today.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>New today:</b> the Ignition 8.3 <span class="inlinecode">data/</span> directory decoded file by file, <span class="inlinecode">.deployignore</span>, and a local → dev → prod promotion driven by Git Flow. The scan API returns in anger: per-gateway API keys, scoped permissions, and CI calling it instead of you.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>New today:</b> the Ignition 8.3 <span class="inlinecode">data/</span> directory decoded file by file, <span class="inlinecode">.deployignore</span>, and a local → dev → prod promotion driven by GitHub Flow. The scan API returns in anger: per-gateway API keys, scoped permissions, and CI calling it instead of you.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Not today:</b> image-based deploys and multi-gateway coordination. That's Day 3 (Labs 05 and 06). Today is a deep dive: decode the file tree, then master the deploy pattern built directly on it.</span></li>
     </ul>
     <div class="callout">
@@ -525,7 +525,7 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
       <span class="num">07</span>
       <div>
         <div class="title">The file-based deploy in five steps</div>
-        <div class="lead">This is literally what <span class="inlinecode">deploy.yml</span> does on every merge into <span class="inlinecode">develop</span>, and what <span class="inlinecode">release.yml</span> does on every tag.</div>
+        <div class="lead">This is literally what <span class="inlinecode">deploy.yml</span> does on every push to <span class="inlinecode">main</span>, and what <span class="inlinecode">release.yml</span> does on every tag.</div>
       </div>
     </div>
 
@@ -533,7 +533,7 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
       <div class="p5 reveal" data-step="1">
         <span class="n">1</span>
         <h5>Commit</h5>
-        <p>A <code>feature/*</code> PR merges into <code>develop</code>. The git working tree <b>is</b> the deployable artifact.</p>
+        <p>A <code>feature/*</code> PR merges into <code>main</code>. The git working tree <b>is</b> the deployable artifact.</p>
       </div>
       <span class="p5arr reveal" data-step="2">→</span>
       <div class="p5 reveal" data-step="2">
@@ -798,7 +798,7 @@ scripts/scan.sh both --gateway dev</pre></div>
     </div>
     <table class="tbl" style="max-width:1080px">
       <tr><th></th><th>deploy.yml → dev</th><th>release.yml → prod</th></tr>
-      <tr><td><b>Trigger</b></td><td>Push to <code>develop</code>, gated by a <code>paths:</code> filter (<code>projects/**</code>, <code>services/config/**</code>, …). Docs-only pushes don't deploy.</td><td>Tag <code>v*</code> · manual <code>workflow_dispatch</code> with a <b>tag input</b>: the rollback button.</td></tr>
+      <tr><td><b>Trigger</b></td><td>Push to <code>main</code>, gated by a <code>paths:</code> filter (<code>projects/**</code>, <code>services/config/**</code>, …). Docs-only pushes don't deploy.</td><td>Tag <code>v*</code> · manual <code>workflow_dispatch</code> with a <b>tag input</b>: the rollback button.</td></tr>
       <tr><td><b>Checks out</b></td><td>The merged commit</td><td>The tag: <code>ref: inputs.tag || github.ref</code>, so re-deploying <code>v0.1.0</code> ships that exact tree again.</td></tr>
       <tr><td><b>Environment</b></td><td><code>lab-gateway-dev</code> · secret <code>IGNITION_API_KEY</code></td><td><code>lab-gateway-prod</code>: add <b>required reviewers</b> here for an approval gate, zero workflow changes.</td></tr>
       <tr><td><b>Target defaults</b></td><td><code>http://ignition-dev:8088</code> · <code>lab04-ignition-dev</code></td><td><code>http://ignition-prod:8088</code> · <code>lab04-ignition-prod</code></td></tr>
@@ -826,7 +826,7 @@ scripts/scan.sh both --gateway dev</pre></div>
     <ul class="checks" style="max-width:940px;margin-top:22px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do (part 1).</b> Live tour of <span class="mono" style="color:#dbe4f0">data/</span> from inside the container, plus the marker trick: touch a marker, click in the UI, <span class="mono" style="color:#dbe4f0">find -newer</span> the file it wrote.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do (part 2).</b> A view created on disk by hand, scanned into the local gateway, then shipped to dev with the exact <span class="mono" style="color:#dbe4f0">docker cp</span> commands the workflow automates.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> Part 1: classify real UI changes into buckets. Part 2: wire your fork's runner, merge a PR into <span class="mono" style="color:#dbe4f0">develop</span> → <b>dev</b>, tag <span class="mono" style="color:#dbe4f0">v0.1.0</span> → <b>prod</b>. Then break a deploy on purpose.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> Part 1: classify real UI changes into buckets. Part 2: wire your fork's runner, merge a PR into <span class="mono" style="color:#dbe4f0">main</span> → <b>dev</b>, tag <span class="mono" style="color:#dbe4f0">v0.1.0</span> → <b>prod</b>. Then break a deploy on purpose.</span></li>
     </ul>
     <p class="lead" style="font-size:13.5px;color:#8fa0b6;margin-top:22px">Day 3 teaser: everything a scan <i>can't</i> apply (modules, the gateway baseline) gets baked into images. Lab 05.</p>
   </div>
@@ -904,7 +904,7 @@ function bindControls(slideEl,ctrl){
   const items=[...slide.querySelectorAll('.reveal')];
   const lead=slide.querySelector('#five-step');
   const texts=['Step through what the deploy workflow actually does.',
-    '<b>1 · Commit.</b> A feature PR merges into <b>develop</b>. No build step, no artifact registry: the working tree in git <b>is</b> the deployable.',
+    '<b>1 · Commit.</b> A feature PR merges into <b>main</b>. No build step, no artifact registry: the working tree in git <b>is</b> the deployable.',
     '<b>2 · Checkout.</b> The self-hosted runner picks up the push and checks out the merged commit. Nothing Ignition-specific yet.',
     '<b>3 · Prune.</b> The runner deletes everything <b>.deployignore</b> matches (docs, scripts, secrets) before it can ship.',
     '<b>4 · Ship.</b> Wipe the target\'s projects/ and config/, then <b>docker cp</b> the tree in. Wipe-then-copy makes deletions propagate.',
@@ -948,7 +948,7 @@ function bindControls(slideEl,ctrl){
   const prod   = box(1200,610,380,140,'ignition-prod  :8090','named volume · fed by tags', amber);
 
   const fBind = flow(440,270,1005,140,'bind mount · edit → scan',teal);
-  const fPushD= flow(440,400,517,485,'merge PR into develop',peri);
+  const fPushD= flow(440,400,517,485,'merge PR into main',peri);
   const fShipD= flow(880,485,1005,410,'deploy.yml · docker cp + scan',peri);
   const fTag  = flow(440,430,530,555,'tag vX.Y.Z on main',amber);
   const fShipP= flow(880,560,1005,600,'release.yml · docker cp + scan',amber);
@@ -957,8 +957,8 @@ function bindControls(slideEl,ctrl){
   const steps=[
     {on:[repo,local,fBind],t:'<b>local</b> is your scratchpad: it bind-mounts <b>projects/</b> and <b>services/config/</b> straight from the repo. Edit a file, hit scan, see it at :8088, no CI involved.'},
     {on:[runner],t:'The <b>bundled runner</b> registers against <i>your fork</i> and polls GitHub for jobs. It shares the host\'s Docker socket, which is how it reaches inside the other containers. Lab convenience, not a production pattern.'},
-    {on:[dev,fPushD,fShipD],t:'Merge a feature PR into <b>develop</b> → <b>deploy.yml</b> runs on the runner → wipe + docker cp + scan → the change is live on <b>dev</b> (:8089). Many small merges a day.'},
-    {on:[prod,fTag,fShipP],t:'Merging to <b>main</b> ships <i>nothing</i>. Push a tag <b>vX.Y.Z</b> → <b>release.yml</b> ships that exact commit to <b>prod</b> (:8090). Prod always runs a named, re-deployable version.'},
+    {on:[dev,fPushD,fShipD],t:'Merge a feature PR into <b>main</b> → <b>deploy.yml</b> runs on the runner → wipe + docker cp + scan → the change is live on <b>dev</b> (:8089). Many small merges a day.'},
+    {on:[prod,fTag,fShipP],t:'Merging to <b>main</b> ships <i>dev</i>, not prod. Push a tag <b>vX.Y.Z</b> on main → <b>release.yml</b> ships that exact commit to <b>prod</b> (:8090). Prod always runs a named, re-deployable version.'},
     {on:[],t:'The pipelines hold the routing: <b>deploy.yml → dev</b> · <b>release.yml → prod</b> · <b>local outside the flow entirely</b>. Your merge or tag just triggers them, and no human picks a target by hand.'}
   ];
   const all=[repo,local,runner,dev,prod,fBind,fPushD,fShipD,fTag,fShipP];

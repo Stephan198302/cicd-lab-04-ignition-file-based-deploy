@@ -167,8 +167,8 @@ body{
   </div>
   <div class="cover">
     <div class="eyebrow">The assignment · breakout rooms</div>
-    <div class="big">Know every file in <span class="mono" style="color:#dbe4f0">data/</span>, then build the <em>file-based deploy</em>.</div>
-    <div class="sub">Two parts. In the first part you become the person who can point at any file in an Ignition gateway's <span class="mono" style="color:#dbe4f0">data/</span> directory and say what it is, who owns it, and whether it belongs in git. In the second part you wire that knowledge into GitHub Actions: a PR merged into <span class="mono" style="color:#dbe4f0">develop</span> lands on the dev gateway, a tag on <span class="mono" style="color:#dbe4f0">main</span> lands on prod. Hot scan, no restarts.</div>
+    <div class="big">Let's <em>deploy Ignition</em> now!</div>
+    <div class="sub">Two parts. In the first part you become the person who can point at any file in an Ignition gateway's <span class="mono" style="color:#dbe4f0">data/</span> directory and say what it is, who owns it, and whether it belongs in git. In the second part you wire that knowledge into GitHub Actions: a push to <span class="mono" style="color:#dbe4f0">main</span> lands on the dev gateway, a tag on <span class="mono" style="color:#dbe4f0">main</span> lands on prod. Hot scan, no restarts.</div>
     <div class="for">
       <span>Floating to help</span>
       <span class="pill"><b>Sam</b></span>
@@ -233,13 +233,13 @@ body{
       <div class="pcard p3">
         <div class="pn">PART 2 · YOU DO</div>
         <h4>Wire it into Actions</h4>
-        <p>Runner online → environments + secrets → PR to <span class="inlinecode">develop</span> ships dev → tag ships prod → break one on purpose.</p>
+        <p>Runner online → environments + secrets → push to <span class="inlinecode">main</span> ships dev → tag ships prod → break one on purpose.</p>
         <div class="gate">Parts 1 → 5</div>
       </div>
     </div>
     <div class="goal">
       <span class="badge">Why this order</span>
-      <p>The deploy part automates <b>exactly</b> what you do by hand in the file-structure we-do. Start the deploy prerequisites early: <b>fork with Actions enabled, a <span class="inlinecode">develop</span> branch, <span class="inlinecode">gh</span> authenticated, an API key per gateway</b>. The #1 "nothing deploys" cause is a missing <span class="inlinecode">develop</span> branch.</p>
+      <p>The deploy part automates <b>exactly</b> what you do by hand in the file-structure we-do. Start the deploy prerequisites early: <b>fork with Actions enabled, <span class="inlinecode">gh</span> authenticated, an API key per gateway</b>. The #1 "nothing deploys" cause is forgetting to enable Actions on the fork.</p>
     </div>
   </div>
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>File structure before deploy</span></div>
@@ -293,51 +293,10 @@ docker exec lab04-ignition-local cat &lt;path-you-found&gt;</pre></div>
     <p class="lead">Pick <b style="color:#fff">three</b> from the list (or invent your own, where at least one of your own is worth more). For each, note: <b style="color:#fff">what you changed · where it lives on disk (relative to <span class="mono">data/</span>) · which bucket · would you commit it, one sentence why</b>.</p>
     <ul class="checks" style="max-width:980px;margin-top:20px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>A Perspective view</b> in a project. No Designer? Simulate on disk: <span class="mono" style="color:#dbe4f0">projects/sample/com.inductiveautomation.perspective/views/Hello/{view.json, resource.json}</span> (minimal content in <span class="mono" style="color:#dbe4f0">docs/ignition-file-structure.md</span>, and the <b>resource.json manifest is required</b>).</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gateway timezone</b> (Config → System → Time) · <b>a new user</b> (Config → Security → Users) · <b>a new tag provider</b> (Config → Tags → Realtime) · <b>toggle a module</b> (Config → Modules).</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Use the marker trick every time:</b> re-touch before each change, <span class="mono" style="color:#dbe4f0">find -newer</span> after. One of the five lands somewhere that must <b>never</b> go in git. Which?</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>A new user</b> (Config → Security → Users) · <b>a new tag provider</b> (Config → Tags → Realtime) · <b>toggle a module</b> (Config → Modules).</span></li>
     </ul>
-    <div class="goal" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);border-left-color:var(--good)">
-      <span class="badge" style="background:var(--good)">Done when</span>
-      <p style="color:#c4cfde">You can find any UI change's file with the marker trick · say for each of your three changes which bucket it's in and whether you'd commit it · state the 8.3 path shape for a view <b style="color:#fff">and</b> a config resource · explain why <span class="mono" style="color:#dbe4f0">db/</span> and <span class="mono" style="color:#dbe4f0">.resources/</span> are never committed.</p>
-    </div>
   </div>
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>exercises/lab.md · You do, answers in your notes</span></div>
-</section>
-
-<!-- 6 · PART 1 · STRETCH -->
-<section class="slide">
-  <div class="topbar">
-    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">File structure · optional stretch</div>
-  </div>
-  <div class="body">
-    <div class="sechead"><span class="num warm">OPTIONAL · 1</span><div><div class="title">Stretch: draft the <span class="mono" style="font-size:30px">.gitignore</span></div><div class="lead">You now know the operational bucket. Turn that knowledge into ignore patterns: the precursor to <span class="inlinecode">.deployignore</span>, which the deploy part puts to work.</div></div></div>
-    <div class="cols2">
-      <div class="steps">
-        <div class="step"><div class="ix t">1</div><div class="tx">From memory, draft a starter <span class="inlinecode">.gitignore</span> for an Ignition project repo. Cover the <b>operational bucket</b>: the internal DB, tag value stores, caches, blob stores.</div></div>
-        <div class="step"><div class="ix t">2</div><div class="tx">Compare with the shipped <span class="inlinecode">.gitignore</span> in this repo. <b>What did you miss? What did the shipped one miss?</b></div></div>
-        <div class="step"><div class="ix t">3</div><div class="tx">Commonly forgotten: <span class="inlinecode">config/resources/local/</span> (instance identity), <span class="inlinecode">*.gwbk</span> (backups), <span class="inlinecode">*.modl</span> (module binaries), <span class="inlinecode">tags/*.idb</span> (tag value stores inside the versioned config tree).</div></div>
-      </div>
-      <div>
-        <div class="code"><pre><span class="cm"># a reasonable answer looks something like:</span>
-data/db/
-data/jar-cache/
-data/metricsdb/
-data/var/
-data/config/resources/.resources/
-data/config/ignition/tags/*.idb
-data/config/resources/local/
-data/modules/*.modl
-*.gwbk
-.env</pre></div>
-      </div>
-    </div>
-    <div class="goal">
-      <span class="badge">Debrief question</span>
-      <p>Which bucket has the <b>trickiest deploy story</b>? Hint: it's the one that <i>sometimes</i> needs a restart, and it frames everything in the deploy part.</p>
-    </div>
-  </div>
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Stretch · optional · then on to the deploy part</span></div>
 </section>
 
 <!-- 7 · PART 2 · PRE-FLIGHT -->
@@ -348,16 +307,13 @@ data/modules/*.modl
   </div>
   <div class="body">
     <div class="eyebrow">Part 2 · before anything can deploy</div>
-    <div class="title" style="color:#fff;max-width:22ch">Pre-flight: five things your fork needs</div>
+    <div class="title" style="color:#fff;max-width:22ch">Pre-flight: four things your fork needs</div>
     <ul class="checks" style="max-width:960px;margin-top:20px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Fork with Actions enabled.</b> Forks ship with workflows <b>disabled</b>, so open your fork's <i>Actions</i> tab and click "enable" or nothing will ever trigger.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>A <span class="mono" style="color:#dbe4f0">develop</span> branch</b>, Git Flow's integration branch. Optionally make it the fork's default branch so PRs target it automatically.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The GitHub CLI (<span class="mono" style="color:#dbe4f0">gh</span>) authenticated</b>, with <span class="mono" style="color:#dbe4f0">RUNNER_REPO_URL</span> pointing at <b>your fork</b>. <span class="mono" style="color:#dbe4f0">setup.sh</span> mints the runner's registration token with <span class="mono" style="color:#dbe4f0">gh</span> — no PAT.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>An API key per gateway</b>: each gateway's UI → <i>Config → Security → API Keys → New</i>, scoped to <b>Project Scan + Config Scan</b> only. Copy immediately, because you can't read it back. Into <span class="mono" style="color:#dbe4f0">.env</span> as <span class="mono" style="color:#dbe4f0">IGNITION_API_KEY_LOCAL/_DEV/_PROD</span>.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Two GitHub environments</b>: <span class="mono" style="color:#dbe4f0">lab-gateway-dev</span> and <span class="mono" style="color:#dbe4f0">lab-gateway-prod</span>, set up in Part 2.</span></li>
     </ul>
-    <div class="code" style="max-width:640px;margin-top:18px"><pre><span class="cm"># the develop branch, one-time</span>
-git checkout -b develop &amp;&amp; git push -u origin develop</pre></div>
   </div>
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>exercises/lab.md · Pre-flight</span></div>
 </section>
@@ -442,33 +398,33 @@ docker compose logs --tail 50 github-runner
     <div class="stage">File-based deploy · you do · part 3</div>
   </div>
   <div class="body">
-    <div class="sechead"><span class="num p" style="background:var(--peri)">PART 3</span><div><div class="title">Ship to dev via <span class="mono" style="font-size:30px">develop</span></div><div class="lead">15 min. A real PR rides the pipeline: feature branch → PR → CI → merge → deploy.yml → dev gateway.</div></div></div>
+    <div class="sechead"><span class="num p" style="background:var(--peri)">PART 3</span><div><div class="title">Ship to dev via <span class="mono" style="font-size:30px">main</span></div><div class="lead">15 min. A real PR rides the pipeline: feature branch → PR → CI → merge → deploy.yml → dev gateway.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix p">1</div><div class="tx"><b>One-time:</b> the sample project must be <i>committed</i> to <span class="inlinecode">develop</span> (the We-do left it untracked).</div></div>
-        <div class="step"><div class="ix p">2</div><div class="tx">Branch <span class="inlinecode">feature/tweak-view</span> off <span class="inlinecode">develop</span>, change the view's <b>height</b>, push.</div></div>
-        <div class="step"><div class="ix p">3</div><div class="tx">Open a PR <b>into <span class="inlinecode">develop</span></b>. Watch <span class="inlinecode">ci.yml</span> run on <span class="inlinecode">ubuntu-latest</span> (free): JSON, <span class="inlinecode">.deployignore</span> and workflow validation.</div></div>
+        <div class="step"><div class="ix p">1</div><div class="tx"><b>One-time:</b> the sample project must be <i>committed</i> to <span class="inlinecode">main</span> (the We-do left it untracked).</div></div>
+        <div class="step"><div class="ix p">2</div><div class="tx">Branch <span class="inlinecode">feature/tweak-view</span> off <span class="inlinecode">main</span>, change the view's <b>height</b>, push.</div></div>
+        <div class="step"><div class="ix p">3</div><div class="tx">Open a PR <b>into <span class="inlinecode">main</span></b>. Watch <span class="inlinecode">ci.yml</span> run on <span class="inlinecode">ubuntu-latest</span> (free): JSON, <span class="inlinecode">.deployignore</span> and workflow validation.</div></div>
         <div class="step"><div class="ix p">4</div><div class="tx"><b>Merge.</b> <span class="inlinecode">deploy.yml</span> fires (note the <span class="inlinecode">paths:</span> filter, since docs-only pushes don't deploy). Watch the <b>Ship</b> and <b>Trigger gateway scan</b> steps.</div></div>
         <div class="step"><div class="ix p">5</div><div class="tx"><b>Verify at :8089.</b> The dev gateway shows your new height.</div></div>
       </div>
       <div>
-        <div class="code"><pre><span class="cm"># 1 (one-time): get sample onto develop</span>
+        <div class="code"><pre><span class="cm"># 1 (one-time): get sample onto main</span>
 git add projects/sample
 git commit -m <span class="cmd2">"Add sample project"</span>
-git push origin develop
+git push origin main
 
 <span class="cm"># 2: the feature</span>
-git checkout develop
+git checkout main
 git checkout -b feature/tweak-view
 <span class="cm"># edit …/views/Hello/view.json to change height</span>
 git commit -am <span class="cmd2">"Tweak Hello view height"</span>
 git push -u origin feature/tweak-view
-<span class="cm"># then: PR into develop → CI green → merge</span></pre></div>
+<span class="cm"># then: PR into main → CI green → merge</span></pre></div>
       </div>
     </div>
     <div class="goal warn-g">
       <span class="badge">Nothing deployed?</span>
-      <p>Two classic causes: you merged into <b><span class="inlinecode">main</span></b> instead of <span class="inlinecode">develop</span> (only <span class="inlinecode">develop</span> triggers <span class="inlinecode">deploy.yml</span>), or your fork has no <span class="inlinecode">develop</span> branch so the PR silently targeted <span class="inlinecode">main</span>.</p>
+      <p>Two classic causes: the change didn't touch a deploy path (the <span class="inlinecode">paths:</span> filter skipped it), or Actions isn't enabled on your fork.</p>
     </div>
   </div>
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Part 3 of 5</span></div>
@@ -481,18 +437,17 @@ git push -u origin feature/tweak-view
     <div class="stage">File-based deploy · you do · part 4</div>
   </div>
   <div class="body">
-    <div class="sechead"><span class="num p" style="background:var(--peri)">PART 4</span><div><div class="title">Release to prod: <span class="mono" style="font-size:30px">main</span> + a tag</div><div class="lead">10 min. The Git Flow release: bring <span class="inlinecode">develop</span> to <span class="inlinecode">main</span>, then tag. <b>The tag, not the merge, is what ships.</b></div></div></div>
+    <div class="sechead"><span class="num p" style="background:var(--peri)">PART 4</span><div><div class="title">Release to prod: <span class="mono" style="font-size:30px">main</span> + a tag</div><div class="lead">10 min. The GitHub Flow release: tag the commit on <span class="inlinecode">main</span> you want in prod. <b>The tag, not the merge, is what ships prod.</b></div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix p">6</div><div class="tx">Merge <span class="inlinecode">develop</span> into <span class="inlinecode">main</span> (a simple <span class="inlinecode">--no-ff</span> merge stands in for a <span class="inlinecode">release/*</span> branch today).</div></div>
-        <div class="step"><div class="ix p">7</div><div class="tx"><b>Observe: nothing deploys.</b> A push to <span class="inlinecode">main</span> triggers no workflow, by design.</div></div>
+        <div class="step"><div class="ix p">6</div><div class="tx">The change is already on <span class="inlinecode">main</span> from the dev deploy, now tag it.</div></div>
+        <div class="step"><div class="ix p">7</div><div class="tx"><b>Observe: the tag is what ships prod.</b> The merge already shipped dev, but only a <span class="inlinecode">v*</span> tag reaches prod.</div></div>
         <div class="step"><div class="ix p">8</div><div class="tx">Tag <span class="inlinecode">v0.1.0</span> and push the tag. <span class="inlinecode">release.yml</span> fires: same five steps, different environment, prod container.</div></div>
-        <div class="step"><div class="ix p">9</div><div class="tx"><b>Verify at :8090.</b> Prod now shows the change you merged through <span class="inlinecode">develop</span> and just released.</div></div>
+        <div class="step"><div class="ix p">9</div><div class="tx"><b>Verify at :8090.</b> Prod now shows the change you merged into <span class="inlinecode">main</span> and just released.</div></div>
       </div>
       <div>
-        <div class="code"><pre>git checkout main &amp;&amp; git pull
-git merge --no-ff develop -m <span class="cmd2">"Release v0.1.0"</span>
-git push origin main          <span class="cm"># ← nothing happens</span>
+        <div class="code"><pre><span class="cm"># on main, the change is already there from the dev deploy</span>
+git checkout main &amp;&amp; git pull
 
 git tag v0.1.0
 git push origin v0.1.0        <span class="cm"># ← release.yml fires</span></pre></div>
@@ -574,9 +529,9 @@ docker cp ./services/config/. …:$DATA/config/
     <div class="eyebrow">Nicely done</div>
     <div class="title" style="color:#fff;max-width:24ch">You built a pipeline that ships Ignition.</div>
     <ul class="checks" style="max-width:960px;margin-top:22px">
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Your runner is <b>online</b> · both environments hold an <b>API key</b> · a PR into <span class="mono" style="color:#dbe4f0">develop</span> deployed <b>dev</b> · a <span class="mono" style="color:#dbe4f0">v*</span> tag deployed <b>prod</b> · you broke one deploy and can explain its recovery.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>You can say, in five steps, what happens between "merge" and "gateway reloaded", and name the routing: <b>develop → dev, tag on main → prod, local outside the flow</b>.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Bring to the debrief: your Part 5 failure story, your rollback answer (revert on <span class="mono" style="color:#dbe4f0">develop</span> vs re-deploy a tag), and <b>where a runner would sit at your customer's site</b>.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Your runner is <b>online</b> · both environments hold an <b>API key</b> · a push to <span class="mono" style="color:#dbe4f0">main</span> deployed <b>dev</b> · a <span class="mono" style="color:#dbe4f0">v*</span> tag deployed <b>prod</b> · you broke one deploy and can explain its recovery.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>You can say, in five steps, what happens between "merge" and "gateway reloaded", and name the routing: <b>push to main → dev, tag on main → prod, local outside the flow</b>.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Bring to the debrief: your Part 5 failure story, your rollback answer (revert on <span class="mono" style="color:#dbe4f0">main</span> vs re-deploy a tag), and <b>where a runner would sit at your customer's site</b>.</span></li>
     </ul>
     <div class="goal" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);border-left-color:var(--peri2)">
       <span class="badge" style="background:var(--peri2);color:var(--navy)">Day 3</span>

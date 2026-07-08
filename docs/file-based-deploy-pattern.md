@@ -13,7 +13,7 @@ Reference reading for the deploy part of the lab. The complete pattern in five s
 └───────────────┘    └────────────┘    └───────────┘    └────────────┘    └────────┘
 ```
 
-1. **Commit** to `projects/<name>/` or `services/config/` in git — on a `feature/*` branch off `develop` (see *Git Flow* below).
+1. **Commit** to `projects/<name>/` or `services/config/` in git — on a `feature/*` branch, PR'd into `main` (see *GitHub Flow* below).
 2. **Check out** the repo on the self-hosted runner or the runner hosted by Github.
 3. **Prune** the working tree per `.deployignore` — exclude lab files, READMEs, secrets, anything that shouldn't reach the gateway.
 4. **Ship** the files into the target gateway's container. How depends on the gateway:
@@ -23,20 +23,20 @@ Reference reading for the deploy part of the lab. The complete pattern in five s
 
 That's it. No SSH, no SCP, no remote shell. The gateway has an HTTP API that picks up disk changes.
 
-## Git Flow: which branch ships where
+## GitHub Flow: which branch ships where
 
-This lab wires the pattern to **Git Flow**, so a branch — not a manual run — decides which gateway gets the files:
+This lab wires the pattern to **GitHub Flow**, so a branch — not a manual run — decides which gateway gets the files:
 
 ```
-feature/* ─PR→ develop ──push→ deploy.yml ──→ DEV gateway
-              release/* ─PR→ main ──tag vX.Y.Z→ release.yml ──→ PROD gateway
+feature/* ─PR→ main ──push→ deploy.yml ──→ DEV gateway
+              main ──tag vX.Y.Z→ release.yml ──→ PROD gateway
 ```
 
-- **`develop`** is the integration branch. Merge a `feature/*` PR into it and `deploy.yml` ships the working tree to **dev**. This is the fast inner loop — many small merges a day.
-- **`main`** only takes `release/*` and `hotfix/*` merges. Merging there ships *nothing* by itself; you **tag** `vX.Y.Z` on `main` and that tag fires `release.yml` to **prod**.
-- The tag is what prod runs, so every prod deploy is a named, re-deployable version — that's what makes the `workflow_dispatch` rollback (re-deploy an old tag) work. The `release/*` branch is your freeze point: cut it when `develop` is where you want prod to be.
+- **`main`** is the single long-lived branch. Merge a `feature/*` PR into it and `deploy.yml` ships the working tree to **dev**. This is the fast inner loop — many small merges a day.
+- There is no second long-lived branch: `main` also carries prod. Merging ships *nothing* to prod by itself; you **tag** `vX.Y.Z` on `main` and that tag fires `release.yml` to **prod**.
+- The tag is what prod runs, so every prod deploy is a named, re-deployable version — that's what makes the `workflow_dispatch` rollback (re-deploy an old tag) work. The TAG is your freeze point: tag the commit on `main` you want in prod.
 
-The `local` gateway sits outside Git Flow entirely — it's your bind-mounted scratchpad (edit-and-scan, no branch, no PR).
+The `local` gateway sits outside GitHub Flow entirely — it's your bind-mounted scratchpad (edit-and-scan, no branch, no PR).
 
 ## Why this works (and why people get it wrong)
 

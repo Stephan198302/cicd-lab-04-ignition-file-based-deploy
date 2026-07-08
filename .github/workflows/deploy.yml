@@ -1,8 +1,8 @@
-# Deploy to the dev gateway on push to develop.
+# Deploy to the dev gateway on push to main.
 #
-# Git Flow: `develop` is the integration branch. Feature branches merge into it,
-# and every push here ships the working tree to the DEV gateway. Releases to prod
-# happen separately (main + tag → release.yml).
+# GitHub Flow: `main` is the single long-lived branch. Feature branches merge into
+# it via PR, and every push here ships the working tree to the DEV gateway.
+# Releases to prod happen separately (tag on main → release.yml).
 #
 # File-based deploy via `docker cp` — the dev gateway uses a named volume
 # (not a bind mount), so the runner ships files INTO the container's
@@ -26,7 +26,7 @@ name: Deploy
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     paths:
       - "projects/**"
       - "services/config/**"

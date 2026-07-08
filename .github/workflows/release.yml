@@ -1,8 +1,8 @@
-# Release to the prod gateway on tag push (Git Flow release).
+# Release to the prod gateway on tag push (GitHub Flow release).
 #
-# Git Flow: a release is cut from `develop` via a `release/*` branch, merged into
-# `main`, and tagged `vX.Y.Z`. That tag fires this workflow. The tag pins the
-# exact commit prod ships — "release what you froze on main".
+# GitHub Flow: `main` is always deployable. When you want to cut a release, tag a
+# commit on `main` `vX.Y.Z`. That tag fires this workflow. The tag pins the exact
+# commit prod ships — "release what you froze on main".
 #
 # Triggers on tags matching `v*` (e.g. v1.0.0, v2.3.1-rc1). Also supports
 # manual dispatch with a tag input — that's the rollback button: re-deploy any

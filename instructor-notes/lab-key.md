@@ -95,7 +95,7 @@ Before students move to part 2:
 
 - Remind them part 2 uses the bundled `github-runner` container — needs `gh` installed and authenticated (`gh auth login`) and `RUNNER_REPO_URL` in `.env` pointed at their fork. `setup.sh` mints the registration token via `gh`; no PAT.
 - Have them generate an API key in each gateway UI now (local first). Store in `.env` as `IGNITION_API_KEY_LOCAL/_DEV/_PROD` and as environment-scoped secrets on the `lab-gateway-dev` / `lab-gateway-prod` GitHub environments.
-- Have them create the Git Flow `develop` branch in their fork now — a missing branch is the #1 "nothing deployed" stumble.
+- Confirm Actions is enabled on their fork — the #1 "nothing deployed" stumble (forks ship with workflows disabled; a docs-only push also won't trip the `paths:` filter).
 
 ---
 
@@ -106,20 +106,19 @@ Before students move to part 2:
 By the end of part 2, the participant has:
 
 1. The bundled `github-runner` online — visible in their fork as `self-hosted, lab04`.
-2. A `develop` branch created in their fork.
-3. Two GitHub environments (`lab-gateway-dev`, `lab-gateway-prod`), each with `IGNITION_API_KEY` as an environment-scoped secret.
-4. Edited a view on a `feature/*` branch, opened a PR **into `develop`**, watched CI pass, merged. (The sample project must be committed to `develop` first.)
-5. Watched `deploy.yml` run end-to-end: checkout → verify prereqs → prune → ship (docker cp) → scan → smoke-check.
-6. Verified the change on the **dev** gateway (http://localhost:8089).
-7. Merged `develop` → `main`, pushed a `v*` tag, watched `release.yml` promote the same change to **prod** (http://localhost:8090).
-8. Deliberately broken at least one deploy and read the failure mode.
+2. Two GitHub environments (`lab-gateway-dev`, `lab-gateway-prod`), each with `IGNITION_API_KEY` as an environment-scoped secret.
+3. Edited a view on a `feature/*` branch, opened a PR **into `main`**, watched CI pass, merged. (The sample project must be committed to `main` first.)
+4. Watched `deploy.yml` run end-to-end: checkout → verify prereqs → prune → ship (docker cp) → scan → smoke-check.
+5. Verified the change on the **dev** gateway (http://localhost:8089).
+6. Tagged a commit on `main` with `v*`, watched `release.yml` promote the same change to **prod** (http://localhost:8090).
+7. Deliberately broken at least one deploy and read the failure mode.
 
-If any is missing — especially #7 — push them to complete. The failure cases are half the lesson.
+If any is missing — especially #6 — push them to complete. The failure cases are half the lesson.
 
 ## The five-step pattern
 
-1. **Commit:** developer edits a view on a `feature/*` branch, opens a PR **into `develop`**. PR merges into `develop`.
-2. **Checkout:** the bundled runner picks up the push to `develop`, checks out the merged commit.
+1. **Commit:** developer edits a view on a `feature/*` branch, opens a PR **into `main`**. PR merges into `main`.
+2. **Checkout:** the bundled runner picks up the push to `main`, checks out the merged commit.
 3. **Prune:** the runner reads `.deployignore` and removes those files from the working tree before they can ship.
 4. **Ship:** `docker exec` wipes the target's `projects/` and `config/` dirs — preserving only the gateway-owned identity subtrees `.deployignore` protects (`config/local/`, `config/resources/local/`) — then `docker cp` writes the working tree into the gateway's container.
 5. **Scan:** an inline `POST /data/api/v1/scan/{projects,config}` against the gateway. Gateway re-reads disk.
@@ -129,7 +128,7 @@ If any is missing — especially #7 — push them to complete. The failure cases
 ```yaml
 on:
   push:
-    branches: [develop]             # Git Flow: deploy on merges into the integration branch
+    branches: [main]                # GitHub Flow: deploy on pushes to the single long-lived branch
     paths:                          # skip workflow on docs-only changes
       - "projects/**"
       - "services/config/**"
@@ -191,7 +190,7 @@ jobs:
 Highlights for the grade:
 
 - **Least-privilege permissions.** `contents: read` is enough.
-- **`branches: [develop]`.** Only merges into the integration branch deploy to dev. A push to `main` does *not* deploy — prod is reached by tagging (`release.yml`). Most common point of confusion.
+- **`branches: [main]`.** Only pushes to main deploy to dev. Prod is reached by tagging (`release.yml`). Most common point of confusion.
 - **`paths:` filter.** Docs-only changes don't retrigger the deploy.
 - **`concurrency` block.** `cancel-in-progress: false` queues a new run rather than cancelling an in-flight one — cancellation mid-`docker cp` would leave a partial state.
 - **Wipe `config/`, but spare what `.deployignore` prunes.** The wipe deletes everything under `projects/` and `config/` *except* the two identity subtrees `.deployignore` protects: `config/local/` and `config/resources/local/` (UUID, OPC-UA keystores, machine-local props). Those are pruned from the working tree, so a blanket `rm -rf config/*` would delete them with nothing to copy back — stripping the gateway's identity. The scan API token lives at `config/resources/core/ignition/api-token/` and **is** committed, so it gets wiped and copied back fresh each deploy. The rule: **wipe = repo-owned; preserve = whatever `.deployignore` prunes.**
@@ -203,8 +202,8 @@ Highlights for the grade:
 
 ## Common stumbles
 
-- **"I merged my PR but nothing deployed."** (a) They merged into `main` instead of `develop` — only `develop` triggers `deploy.yml`; (b) their fork has no `develop` branch, so the PR targeted `main`. Fix: create `develop`, ideally set it as the fork's default branch.
-- **"I pushed to `main` and expected prod to update."** Merging into `main` deploys nothing — prod is reached by **tagging**. By design: prod always runs a named version.
+- **"I merged my PR but nothing deployed."** (a) The change didn't touch a deploy path, so the `paths:` filter skipped `deploy.yml` (docs-only, README, etc.); (b) Actions isn't enabled on their fork (forks ship with workflows disabled). Fix: touch a path under the filter, and enable Actions in the fork's *Actions* tab.
+- **"I pushed to `main` and expected prod to update."** Merging into `main` deploys to **dev** only — prod is reached by **tagging**. By design: prod always runs a named version.
 - **"My runner isn't picking up jobs."** Container running (`docker compose ps github-runner`), `RUNNER_REPO_URL` points at the **fork**, and `gh` was authenticated when they ran `setup.sh` (it mints the token). `docker compose logs github-runner` surfaces it.
 - **"The deploy ran but my change isn't visible."** Did `Ship` succeed (docker cp output)? Did the scan return HTTP 200? Are they looking at **dev** (8089) or **local** (8088)?
 - **"The scan step 403'd (or 401'd)."** 403 = the API key's role lacks Project/Config Scan **or** the gateway's Read/Write permissions (Config → Security → General Settings) don't admit the token's security level (`Authenticated`). 401 = the token isn't recognized. The deploy wipes and re-copies `config/`, including the API token under `config/resources/core/ignition/api-token/` — that works only because the token is **committed to the repo**, so it's copied back with the same hash each deploy. If someone generates a fresh token in the gateway UI but doesn't commit it, the next deploy wipes it and the scan 401s. Fix: commit the token resource (or generate the CI token, export it into the repo, and keep it there).
@@ -227,11 +226,11 @@ The most teaching-rich segment.
 
 The lab doesn't formally implement rollback. Three patterns:
 
-1. **`git revert` on `develop` + re-merge** — idempotent; re-runs `deploy.yml`, restores **dev**.
-2. **`release.yml` workflow_dispatch with an older tag** — the canonical "redeploy v0.1.0" for **prod**; works because Git Flow pins every prod deploy to a tag.
+1. **`git revert` on `main`** — idempotent; re-runs `deploy.yml`, restores **dev**.
+2. **`release.yml` workflow_dispatch with an older tag** — the canonical "redeploy v0.1.0" for **prod**; works because every prod deploy is pinned to a tag.
 3. **Snapshot before deploy** — take a `gwbk` first.
 
-Maps to the branch: revert on `develop` for **dev**; re-deploy the previous tag for **prod**.
+Maps to the branch: revert on `main` for **dev**; re-deploy the previous tag for **prod**.
 
 ## Stretch — gateway-level config & modules
 
