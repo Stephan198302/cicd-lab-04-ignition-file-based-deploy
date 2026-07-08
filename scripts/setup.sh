@@ -206,7 +206,16 @@ if [ -n "$existing_id" ]; then
     echo -e "${YELLOW}Stack already running — 'docker compose up -d' will be a no-op or apply changes.${NC}"
 fi
 echo -e "${GREEN}Starting the stack...${NC}"
-docker compose up -d
+if [ -n "${RUNNER_TOKEN:-}" ]; then
+    docker compose up -d
+else
+    # Without a registration token the runner container would just
+    # restart-loop on "Invalid configuration provided for token", so don't
+    # start it at all. Fix RUNNER_REPO_URL in .env (and gh auth), then
+    # re-run scripts/setup.sh to mint a token and bring the runner up.
+    echo -e "${YELLOW}No runner registration token — starting the stack WITHOUT the github-runner service.${NC}"
+    docker compose up -d --scale github-runner=0
+fi
 echo ""
 docker compose ps
 echo ""
