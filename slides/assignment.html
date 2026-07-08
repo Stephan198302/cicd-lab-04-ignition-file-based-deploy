@@ -190,10 +190,8 @@ body{
     <div class="sechead"><span class="num">READ FIRST</span><div><div class="title">How this works</div></div></div>
     <ul class="checks" style="max-width:940px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Share your screen</b> in your breakout room. This is a "look over your shoulder" class, so we'll drop in where it's useful.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Work in your fork.</b> The self-hosted runner registers against <i>your</i> fork, not the upstream. The exercise file is the source of truth: <span class="inlinecode">exercises/lab.md</span>.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Run <span class="inlinecode">scripts/setup.sh</span> first</b> (it's idempotent). It brings up three gateways + TimescaleDB + the runner and waits until everything is RUNNING (cold start takes a few minutes).</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Trial mode is fine.</b> Each gateway runs a 2-hour trial. Reset via <i>Gateway → Config → Licensing → Reset Trial</i>: unlimited, and you'll do it three times if all gateways stay up.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Answer keys exist</b> (<span class="inlinecode">instructor-notes/</span>), but <b>don't peek</b> before you've done the solo work. The classification skill <i>is</i> the lesson.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Trial mode is fine.</b> Each gateway runs a 2-hour trial. Reset it when necessary</span></li>
     </ul>
     <div class="goal good-g">
       <span class="badge">Ask early</span>
@@ -245,7 +243,48 @@ body{
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>File structure before deploy</span></div>
 </section>
 
-<!-- 4 · PART 1 · WE DO -->
+<!-- 4 · SETUP · FORK & CLONE -->
+<section class="slide">
+  <div class="topbar">
+    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
+    <div class="stage">Before you start · setup</div>
+  </div>
+  <div class="body">
+    <div class="sechead"><span class="num warm">SETUP</span><div><div class="title">First: fork this lab, clone it, turn Actions on</div><div class="lead">Part 2's deploy pipeline runs in <b>your own fork's</b> GitHub Actions, driving a self-hosted runner on your machine. So everyone forks — and because forks ship with <b>workflows disabled</b>, you enable them by hand before anything can trigger.</div></div></div>
+    <div class="cols2">
+      <div class="steps">
+        <div class="step"><div class="ix t">1</div><div class="tx">Go to your lab parent folder <span class="inlinecode">~/mustry-academy/</span> — all the lab repos live side by side, one folder per lab. <b>On WSL2, clone into your Linux home</b> (<span class="inlinecode">~/…</span>), never <span class="inlinecode">/mnt/c/…</span>: the gateways' bind mounts are far slower and line endings get messy across the Windows boundary.</div></div>
+        <div class="step"><div class="ix t">2</div><div class="tx"><b>Fork &amp; clone.</b> <span class="inlinecode">gh repo fork … --clone</span> forks the lab to <i>your</i> account and clones your fork in one go. Prefer the website? Press <b>Fork</b> on github.com, then <span class="inlinecode">git clone</span> your fork.</div></div>
+        <div class="step"><div class="ix t">3</div><div class="tx"><b>Enable Actions.</b> Open your fork's <b>Actions</b> tab and click "<i>I understand my workflows, enable them</i>". Skip this and no PR or tag will ever deploy. This is also where <span class="inlinecode">RUNNER_REPO_URL</span> in <span class="inlinecode">.env</span> must point — at <b>your fork</b>, not the course repo.</div></div>
+        <div class="step"><div class="ix t">4</div><div class="tx"><b>Check the remotes:</b> <span class="inlinecode">git remote -v</span> — <span class="inlinecode">origin</span> must show <b>your username</b>. Then <span class="inlinecode">code .</span> to open VS Code, and <span class="inlinecode">scripts/setup.sh</span> brings up the stack (three gateways + TimescaleDB + the runner).</div></div>
+      </div>
+      <div>
+        <div class="code"><pre><span class="cm"># 1: the parent folder, all labs side by side</span>
+cd ~/mustry-academy
+
+<span class="cm"># 2: fork to your account + clone your fork</span>
+gh repo fork mustry-academy/cicd-lab-04-ignition-file-based-deploy --clone
+<span class="cm">#    …or press "Fork" on github.com, then clone YOUR fork:</span>
+git clone git@github.com:&lt;your-username&gt;/cicd-lab-04-ignition-file-based-deploy.git
+cd cicd-lab-04-ignition-file-based-deploy
+
+<span class="cm"># 3: origin → YOUR username? good.</span>
+git remote -v
+
+<span class="cm"># 4: open VS Code, then bring the stack up</span>
+code .
+scripts/setup.sh          <span class="cm"># three gateways + TimescaleDB + runner</span></pre></div>
+        <div class="goal warn-g" style="margin-top:18px">
+          <span class="badge">Forks disable Actions</span>
+          <p>The <b>#1 "nothing deploys" cause</b>: workflows left disabled on the fork. Enable them <b>now</b>, while you're here — the full deploy pre-flight (<span class="inlinecode">gh</span> auth, an API key per gateway) comes at the top of Part 2.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Setup · fork &amp; clone → enable Actions → setup.sh</span></div>
+</section>
+
+<!-- 5 · PART 1 · WE DO -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
@@ -281,7 +320,7 @@ docker exec lab04-ignition-local cat &lt;path-you-found&gt;</pre></div>
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>File structure we-do → now go solo</span></div>
 </section>
 
-<!-- 5 · PART 1 · YOU DO -->
+<!-- 6 · PART 1 · YOU DO -->
 <section class="slide dark">
   <div class="topbar">
     <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
@@ -484,7 +523,43 @@ docker compose up -d ignition-dev  <span class="cm"># recovery</span></pre></div
   <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Part 5 of 5 → definition of done</span></div>
 </section>
 
-<!-- 13 · DONE -->
+<!-- 13 · STRETCH · GITIGNORE DRAFT -->
+<section class="slide">
+  <div class="topbar">
+    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
+    <div class="stage">File structure · optional stretch</div>
+  </div>
+  <div class="body">
+    <div class="sechead"><span class="num warm">OPTIONAL · 1</span><div><div class="title">Stretch: draft the <span class="mono" style="font-size:30px">.gitignore</span></div><div class="lead">You now know the operational bucket. Turn that knowledge into ignore patterns: the precursor to <span class="inlinecode">.deployignore</span>, which the deploy part puts to work.</div></div></div>
+    <div class="cols2">
+      <div class="steps">
+        <div class="step"><div class="ix t">1</div><div class="tx">From memory, draft a starter <span class="inlinecode">.gitignore</span> for an Ignition project repo. Cover the <b>operational bucket</b>: the internal DB, tag value stores, caches, blob stores.</div></div>
+        <div class="step"><div class="ix t">2</div><div class="tx">Compare with the shipped <span class="inlinecode">.gitignore</span> in this repo. <b>What did you miss? What did the shipped one miss?</b></div></div>
+        <div class="step"><div class="ix t">3</div><div class="tx">Commonly forgotten: <span class="inlinecode">config/resources/local/</span> (instance identity), <span class="inlinecode">*.gwbk</span> (backups), <span class="inlinecode">*.modl</span> (module binaries), <span class="inlinecode">tags/*.idb</span> (tag value stores inside the versioned config tree).</div></div>
+      </div>
+      <div>
+        <div class="code"><pre><span class="cm"># a reasonable answer looks something like:</span>
+data/db/
+data/jar-cache/
+data/metricsdb/
+data/var/
+data/config/resources/.resources/
+data/config/ignition/tags/*.idb
+data/config/resources/local/
+data/modules/*.modl
+*.gwbk
+.env</pre></div>
+      </div>
+    </div>
+    <div class="goal">
+      <span class="badge">Debrief question</span>
+      <p>Which bucket has the <b>trickiest deploy story</b>? Hint: it's the one that <i>sometimes</i> needs a restart, and it frames everything in the deploy part.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Stretch · optional · then on to the deploy part</span></div>
+</section>
+
+<!-- 14 · DONE -->
 <section class="slide dark">
   <div class="topbar">
     <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
