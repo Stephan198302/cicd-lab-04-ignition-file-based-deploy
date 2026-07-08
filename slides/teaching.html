@@ -351,21 +351,16 @@ body{
 
   <div class="body">
     <div class="sechead">
-      <span class="num">05</span>
+      <span class="num">03</span>
       <div>
         <div class="title">Gateway config &amp; <em>deployment modes</em></div>
-        <div class="lead">Those <span class="mono">core / loc / dev / prd</span> scopes are Ignition 8.3's <b>deployment modes</b> feature: one config set holds every environment, and the gateway picks a mode at boot. <span class="inlinecode">config/resources/&lt;scope&gt;/&lt;module&gt;/&lt;type&gt;/&lt;name&gt;/{config.json, resource.json}</span>, scope first, then module-namespaced. Modes form an <b>inheritance chain</b>.</div>
+        <div class="lead">Those <span class="mono">core / loc / dev / prd</span> scopes are Ignition 8.3's <b>deployment modes</b> feature: one config set holds every environment, and the gateway picks a mode at boot. <span class="inlinecode">config/resources/&lt;scope&gt;/&lt;module&gt;/&lt;type&gt;/&lt;name&gt;/{config.json, resource.json}</span>, scope first, then module-namespaced. The modes form an <b>inheritance chain</b> on top of <span class="mono">core</span>.</div>
       </div>
     </div>
     <div class="scopes">
-      <div class="scope">
-        <div class="nm">external</div>
-        <p>Ignition's built-in defaults. The base everything inherits from. You never touch it.</p>
-      </div>
-      <span class="scarr">→</span>
       <div class="scope" style="border-left:5px solid var(--blue)">
         <div class="nm">core</div>
-        <p><b>The portable config you version and ship</b>: DB connections, identity providers, tag providers, system props. Inherits external.</p>
+        <p><b>The base you version and ship</b>: DB connections, identity providers, tag providers, system props. The portable config every environment inherits from.</p>
       </div>
       <span class="scarr">→</span>
       <div class="scope" style="border-left:5px solid var(--teal)">
@@ -407,7 +402,7 @@ loc/config-mode.json   <span class="cm"># scope descriptor {parent: "core"}</spa
 
   <div class="body">
     <div class="sechead">
-      <span class="num">06</span>
+      <span class="num">04</span>
       <div>
         <div class="title">What should <em style="font-style:italic">never</em> be committed</div>
         <div class="lead">The operational bucket, spelled out. If any of these ever show up in <span class="inlinecode">git status</span>, your ignore rules are broken.</div>
@@ -438,7 +433,7 @@ loc/config-mode.json   <span class="cm"># scope descriptor {parent: "core"}</spa
 
   <div class="body">
     <div class="sechead">
-      <span class="num">07</span>
+      <span class="num">05</span>
       <div>
         <div class="title">The gateway writes back: taming the churn</div>
         <div class="lead">On <b>local</b>, your repo <i>is</i> the gateway's disk. That cuts both ways: every UI interaction rewrites manifests <b>inside your working tree</b>, usually touching nothing but a timestamp and a signature. The fix is to <b>undo</b> that noise, not to hide your files from git.</div>
@@ -451,10 +446,11 @@ loc/config-mode.json   <span class="cm"># scope descriptor {parent: "core"}</spa
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>One exception: machine identity.</b> <span class="inlinecode">local-system-properties/config.json</span> belongs to this specific box, so the <span class="inlinecode">post-checkout</span> / <span class="inlinecode">post-merge</span> / <span class="inlinecode">post-rewrite</span> hooks keep just that file <b>skip-worktree</b>. New files the gateway creates stay untracked until you <span class="inlinecode">git add</span> them.</span></li>
       </ul>
       <div>
-        <div class="code"><pre><span class="cm"># wired up by scripts/setup.sh:</span>
-scripts/git-hooks/               <span class="cm"># skip-worktree, machine-local file only</span>
-scripts/git-diff/normalize-ignition-resource-json.py
-                                 <span class="cm"># textconv driver: clean diffs</span>
+        <div class="code"><pre><span class="cm"># one-time wiring (run once after cloning):</span>
+scripts/setup.sh
+<span class="cm">#   → scripts/git-hooks/       skip-worktree, machine-local file only</span>
+<span class="cm">#   → scripts/git-diff/normalize-ignition-resource-json.py</span>
+<span class="cm">#     textconv driver: clean diffs</span>
 
 <span class="cm"># undo volatile-only manifest rewrites:</span>
 scripts/clean-ignition-resource-churn.sh          <span class="cm"># dry run</span>
@@ -479,7 +475,7 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
 
   <div class="body">
     <div class="sechead">
-      <span class="num">08</span>
+      <span class="num">06</span>
       <div>
         <div class="title">Scan or restart? The question that shapes your pipeline</div>
         <div class="lead">The gateway can <b>hot-reload</b> most file changes when you ask it to re-scan. But not all of them, and the ones it can't are exactly where file-based deploys stop.</div>
@@ -526,7 +522,7 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
 
   <div class="body">
     <div class="sechead">
-      <span class="num">09</span>
+      <span class="num">07</span>
       <div>
         <div class="title">The file-based deploy in five steps</div>
         <div class="lead">This is literally what <span class="inlinecode">deploy.yml</span> does on every merge into <span class="inlinecode">develop</span>, and what <span class="inlinecode">release.yml</span> does on every tag.</div>
@@ -598,35 +594,6 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
   </div>
 </section>
 
-<!-- 14 · WHAT SHIPS, WHAT DOESN'T -->
-<section class="slide">
-  <div class="topbar">
-    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">File-based deploy · the repo map</div>
-  </div>
-
-  <div class="body">
-    <div class="sechead">
-      <span class="num">10</span>
-      <div>
-        <div class="title">How the repo pieces fit together</div>
-        <div class="lead">Everything in the lab repo has exactly one route onto (or around) the gateways. Know the route and the failure modes explain themselves.</div>
-      </div>
-    </div>
-    <table class="tbl">
-      <tr><th>Repo path</th><th>Where it lands</th><th>How it gets there</th></tr>
-      <tr><td><code>projects/</code></td><td><code>data/projects/</code></td><td><b>Shipped</b> by deploy/release (<code>docker cp</code> + project scan). Bind-mounted straight in on <b>local</b>.</td></tr>
-      <tr><td><code>services/config/</code></td><td><code>data/config/</code></td><td><b>Shipped</b> the same way + config scan. Bind-mounted on <b>local</b>.</td></tr>
-      <tr><td><code>services/modules.json</code></td><td><code>data/modules.json</code></td><td><b>Bind-mounted into all three gateways</b>, a <i>sibling</i> of <code>services/config/</code>, so the workflows never ship it. Changing it needs a <b>restart</b>, not a scan.</td></tr>
-      <tr><td><code>third-party-modules/*.modl</code></td><td><code>/third-party-modules</code></td><td><b>Bind-mounted</b>; installed at startup via <code>-Dignition.gateway.externalModulesFolder</code>. Binaries stay out of the deploy path entirely.</td></tr>
-      <tr><td><code>db-init/*.sql</code></td><td>TimescaleDB, first boot only</td><td>Adds <code>ignition_dev</code> + <code>ignition_prd</code> (<code>ignition_loc</code> comes from <code>POSTGRES_DB</code>): one logical DB per environment. Never touches a gateway.</td></tr>
-      <tr><td><code>docs/ · exercises/ · scripts/ · README…</code></td><td>nowhere</td><td><b>Pruned</b> by <code>.deployignore</code> before the copy.</td></tr>
-    </table>
-  </div>
-
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Only projects/ and services/config/ ride the deploy</span></div>
-</section>
-
 <!-- 15 · .DEPLOYIGNORE -->
 <section class="slide">
   <div class="topbar">
@@ -636,10 +603,10 @@ scripts/clean-ignition-resource-churn.sh --apply  <span class="cm"># restore fro
 
   <div class="body">
     <div class="sechead">
-      <span class="num">11</span>
+      <span class="num">08</span>
       <div>
         <div class="title"><span class="mono" style="font-size:34px">.deployignore</span>: what <em style="font-style:italic">not</em> to put on a gateway</div>
-        <div class="lead"><b>Not a standard, we made this up for our Ignition projects.</b> gitignore-style patterns that only our deploy workflow reads. Anything matched exists in the repo but <b>never lands on the gateway</b>.</div>
+        <div class="lead">But what if you <b>don't</b> want to deploy everything that is in git? <span class="inlinecode">.gitignore</span> won't cut it (those files aren't even in the repo), so we build <span class="inlinecode">.deployignore</span>: things that live in git but must <b>never land on a gateway</b>. Think <b>simulation PLCs, tags, and environment-specific config</b>, plus docs and lab tooling.</div>
       </div>
     </div>
     <div class="cols2">
@@ -662,6 +629,7 @@ docker-compose.yaml <span class="cm"># ← unless you want it to run there with 
           <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Mostly hygiene:</b> a stray <span class="inlinecode">README.md</span> inside <span class="inlinecode">data/projects/</span> is harmless noise, but noise accumulates, and some lab files could shadow real resources.</span></li>
           <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Sometimes safety:</b> <span class="inlinecode">.env</span> holds your API keys. <span class="inlinecode">services/config/local/</span> is instance identity. Neither may ever reach a shared gateway.</span></li>
           <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>The lab's prune step handles <b>literal paths</b> and <b>bare-name globs</b>, not full gitignore semantics (no <span class="inlinecode">!</span> negation). Keep patterns simple.</span></li>
+          <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Tailor it per customer.</b> One customer wants simulation tags shipped, another never; one keeps a device config in the repo but off the plant. A per-project <span class="inlinecode">.deployignore</span> lets each pipeline draw its own line between "in git" and "on the gateway".</span></li>
         </ul>
         <div class="callout" style="margin-top:16px">
           <div class="lab" style="color:var(--blue)">The ignore-file family</div>
@@ -683,7 +651,7 @@ docker-compose.yaml <span class="cm"># ← unless you want it to run there with 
 
   <div class="body">
     <div class="sechead">
-      <span class="num">12</span>
+      <span class="num">09</span>
       <div>
         <div class="title">Ship = wipe, then copy</div>
         <div class="lead">dev and prod use <b>named volumes</b>, with no shared filesystem with the runner. So the runner reaches <b>inside</b> the container with <span class="inlinecode">docker exec</span> + <span class="inlinecode">docker cp</span>.</div>
@@ -712,6 +680,10 @@ docker cp ./services/config/. "$IGNITION_CONTAINER:$DATA/config/"</pre></div>
           <div class="lab">In production</div>
           <p>The <span class="inlinecode">docker cp</span> trick is lab topology. Real-world equivalents: an <b>NFS-mounted <span class="inlinecode">data/</span></b>, or a runner <b>on the gateway host</b> writing to the filesystem directly. Same five steps, different transport.</p>
         </div>
+        <div class="callout" style="margin-top:14px;border-left:5px solid var(--warn)">
+          <div class="lab" style="color:var(--warn)">Don't wipe what production owns</div>
+          <p>Only wipe paths the <b>repo</b> is the source of truth for. If you <b>manage tags directly in production</b> (edited on the live gateway, not in git), a blanket <span class="inlinecode">rm -rf</span> of that tree <b>deletes them</b>, and the copy won't bring them back. Scope the wipe to what you actually ship, or leave gateway-owned resources out of the deploy path entirely.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -728,7 +700,7 @@ docker cp ./services/config/. "$IGNITION_CONTAINER:$DATA/config/"</pre></div>
 
   <div class="body">
     <div class="sechead">
-      <span class="num">13</span>
+      <span class="num">10</span>
       <div>
         <div class="title">The scan API: one POST to reload the gateway</div>
         <div class="lead">Files on disk are invisible until the gateway looks. The 8.3 scan endpoints make it look, authenticated with a gateway-issued API key.</div>
@@ -772,7 +744,7 @@ scripts/scan.sh both --gateway dev</pre></div>
 
   <div class="body">
     <div class="sechead">
-      <span class="num">14</span>
+      <span class="num">11</span>
       <div>
         <div class="title">Where people get it wrong</div>
         <div class="lead">Five classic failure modes, and you'll trigger at least one on purpose in the You-do, because reading the failure is half the lesson.</div>
@@ -818,7 +790,7 @@ scripts/scan.sh both --gateway dev</pre></div>
 
   <div class="body">
     <div class="sechead">
-      <span class="num">15</span>
+      <span class="num">12</span>
       <div>
         <div class="title">Two workflows, one pattern</div>
         <div class="lead"><span class="inlinecode">deploy.yml</span> and <span class="inlinecode">release.yml</span> run the <b>same five steps</b>: checkout → prune → ship → scan → verify. Diff them and the only differences are <b>the trigger and the target</b>. That's the whole deployment policy.</div>
@@ -865,7 +837,7 @@ scripts/scan.sh both --gateway dev</pre></div>
 </div>
 
 <div class="hud"><div class="bar" id="bar"></div></div>
-<div class="pager" id="pager">01 / 20</div>
+<div class="pager" id="pager">01 / 17</div>
 <div class="hint" id="hint">↑ ↓ slides · ← → step the animation</div>
 
 <script>
@@ -926,9 +898,9 @@ function bindControls(slideEl,ctrl){
   return {go,reset:ctrl.reset};
 }
 
-/* ---------- slide 12 (index 11): the five steps (HTML reveal) ---------- */
+/* ---------- slide 10 (index 9): the five steps (HTML reveal) ---------- */
 (function(){
-  const slide=slides[11];
+  const slide=slides[9];
   const items=[...slide.querySelectorAll('.reveal')];
   const lead=slide.querySelector('#five-step');
   const texts=['Step through what the deploy workflow actually does.',
@@ -941,7 +913,7 @@ function bindControls(slideEl,ctrl){
   controllers.five={max:6,render(s){ items.forEach(it=>it.classList.toggle('show',+it.dataset.step<=s)); lead.innerHTML=texts[s]; }};
 })();
 
-/* ---------- slide 13 (index 12): one repo, three gateways (SVG) ---------- */
+/* ---------- slide 11 (index 10): one repo, three gateways (SVG) ---------- */
 (function(){
   const svg=el('svg',{viewBox:'0 0 1500 700',preserveAspectRatio:'xMidYMid meet'},document.getElementById('viz-promo'));
   defsArrow(svg);
@@ -981,7 +953,7 @@ function bindControls(slideEl,ctrl){
   const fTag  = flow(440,430,530,555,'tag vX.Y.Z on main',amber);
   const fShipP= flow(880,560,1005,600,'release.yml · docker cp + scan',amber);
 
-  const lead=slides[12].querySelector('#promo-step');
+  const lead=slides[10].querySelector('#promo-step');
   const steps=[
     {on:[repo,local,fBind],t:'<b>local</b> is your scratchpad: it bind-mounts <b>projects/</b> and <b>services/config/</b> straight from the repo. Edit a file, hit scan, see it at :8088, no CI involved.'},
     {on:[runner],t:'The <b>bundled runner</b> registers against <i>your fork</i> and polls GitHub for jobs. It shares the host\'s Docker socket, which is how it reaches inside the other containers. Lab convenience, not a production pattern.'},
@@ -998,7 +970,7 @@ function bindControls(slideEl,ctrl){
 })();
 
 /* ============ wire controllers to their slides + reset on entry ============ */
-const ctrlBySlide={11:'five',12:'promo'};
+const ctrlBySlide={9:'five',10:'promo'};
 const bound={};
 for(const idx in ctrlBySlide){const name=ctrlBySlide[idx];bound[idx]=bindControls(slides[idx],controllers[name]);}
 // reset a slide's animation when you scroll onto it
