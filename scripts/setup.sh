@@ -255,6 +255,33 @@ for gw in "${LAB_GATEWAYS[@]}"; do
     wait_for_gateway "$gw"
 done
 
+# ---- API-permission repair (first boot only) ------------------------------
+# On the FIRST boot of a fresh gateway container, Ignition's auto-commissioning
+# resets the read/write permissions in security-properties, which locks the
+# pre-provisioned API key out: it still authenticates (bad key = 401) but every
+# call gets 403. Detect that and graft the APIToken permissions back
+# (scripts/fix-gateway-api-perms.sh restarts the affected gateways). Later
+# setups skip this: the data volumes persist, so commissioning runs only once.
+repair_api_perms() {
+    load_api_key_from_env local
+    if is_placeholder_api_key; then
+        return 0   # no key to probe with; initial_scan prints the guidance
+    fi
+    local needs_fix=()
+    local gw url code
+    for gw in "${LAB_GATEWAYS[@]}"; do
+        url="$(gateway_url "$gw")"
+        code="$(curl -s -o /dev/null -w '%{http_code}' -m 10 -X POST             -H "X-Ignition-API-Token: $IGNITION_API_KEY"             "$url/data/api/v1/scan/projects" || true)"
+        [ "$code" = "403" ] && needs_fix+=("$gw")
+    done
+    [ ${#needs_fix[@]} -eq 0 ] && return 0
+    echo -e "${YELLOW}First-boot commissioning reset the API permissions on: ${needs_fix[*]}${NC}"
+    echo "Grafting the APIToken permissions back and restarting..."
+    "$SCRIPT_DIR/fix-gateway-api-perms.sh" "${needs_fix[@]}"
+}
+
+repair_api_perms
+
 # ---- Initial scan (local only) -------------------------------------------
 # Local has projects on disk from the bind mount; dev/prod start empty by
 # design (workflows will populate them).
